@@ -13,6 +13,11 @@ from provenance import (DocumentSimilarityAttribution,
                         compute_rerank_provenance)
 from RAGHelper import RAGHelper
 
+from SubtopicIdentifierAgent import SubtopicIdentifierAgent
+from QuestionGeneratorAgent import QuestionGeneratorAgent
+from RelevanceCheckerAgent import RelevanceCheckerAgent
+from SQLQueryGeneratorAgent import SQLQueryGeneratorAgent
+
 
 def combine_results(inputs: dict) -> dict:
     """Combine the results of the user query processing.
@@ -40,6 +45,14 @@ class RAGHelperCloud(RAGHelper):
         self.logger = logger
         self.llm = self.initialize_llm()
         self.embeddings = self.initialize_embeddings()
+
+        # Initialize agents
+        self.agents = {
+            "subtopic_identifier": SubtopicIdentifierAgent(self.llm),
+            "question_generator": QuestionGeneratorAgent(self.llm),
+            "relevance_checker": RelevanceCheckerAgent(self.llm),
+            "sql_query_generator": SQLQueryGeneratorAgent(self.llm),
+        }
 
         # Load the data
         self.load_data()
@@ -313,3 +326,18 @@ class RAGHelperCloud(RAGHelper):
         elif 'answer' in response:
             response = response["answer"]
         return response
+
+    def chain_agents(self, user_query: str, history: list) -> dict:
+        # Agent 1: Identify subtopics
+        subtopics = self.agents["subtopic_identifier"].identify_subtopics(user_query)
+
+        # Agent 2: Generate questions
+        questions = self.agents["question_generator"].generate_questions(subtopics)
+
+        # Agent 3: Check relevance
+        relevant_questions = self.agents["relevance_checker"].check_relevance(questions, user_query)
+
+        # Agent 4: Generate SQL queries
+        sql_queries = self.agents["sql_query_generator"].generate_sql_queries(relevant_questions)
+
+        return {"sql_queries": sql_queries, "history": history}
