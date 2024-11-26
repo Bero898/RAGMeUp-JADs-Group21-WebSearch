@@ -23,6 +23,10 @@ from PostgresBM25Retriever import PostgresBM25Retriever
 from ScoredCrossEncoderReranker import ScoredCrossEncoderReranker
 from tqdm import tqdm
 
+from SubtopicIdentifierAgent import SubtopicIdentifierAgent
+from QuestionGeneratorAgent import QuestionGeneratorAgent
+from RelevanceCheckerAgent import RelevanceCheckerAgent
+from SQLQueryGeneratorAgent import SQLQueryGeneratorAgent
 
 class RAGHelper:
     """
@@ -66,6 +70,14 @@ class RAGHelper:
         self.xml_xpath = os.getenv("xml_xpath")
         self.json_text_content = os.getenv("json_text _content", "false").lower() == 'true'
         self.json_schema = os.getenv("json_schema")
+
+        # Initialize agents
+        self.agents = {
+            "subtopic_identifier": SubtopicIdentifierAgent(self.llm),
+            "question_generator": QuestionGeneratorAgent(self.llm),
+            "relevance_checker": RelevanceCheckerAgent(self.llm),
+            "sql_query_generator": SQLQueryGeneratorAgent(self.llm),
+        }
 
     @staticmethod
     def format_documents(docs):
@@ -524,3 +536,17 @@ class RAGHelper:
 
         # Add new chunks to the vector database
         self._add_to_vector_database(new_chunks)
+    def chain_agents(self, user_query: str, history: list) -> dict:
+        # Agent 1: Identify subtopics
+        subtopics = self.agents["subtopic_identifier"].identify_subtopics(user_query)
+
+        # Agent 2: Generate questions
+        questions = self.agents["question_generator"].generate_questions(subtopics)
+
+        # Agent 3: Check relevance
+        relevant_questions = self.agents["relevance_checker"].check_relevance(questions, user_query)
+
+        # Agent 4: Generate SQL queries
+        sql_queries = self.agents["sql_query_generator"].generate_sql_queries(relevant_questions)
+
+        return {"sql_queries": sql_queries, "history": history}
