@@ -19,7 +19,7 @@ class HomeController @Inject()(
 )(implicit ec: ExecutionContext) extends AbstractController(cc) {
 
   def index() = Action { implicit request: Request[AnyContent] =>
-    Ok(views.html.index(config))
+    Ok(views.html.index(config, Seq.empty[String]))
   }
 
   def add() = Action.async { implicit request: Request[AnyContent] =>
@@ -33,10 +33,9 @@ class HomeController @Inject()(
   }
 
   def search() = Action.async { implicit request: Request[AnyContent] =>
-    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
-    val query = (json \ "query").as[String]
-    val history = (json \ "history").as[Seq[JsObject]]
-    val docs = (json \ "docs").as[Seq[JsObject]]
+    val query = request.body.asFormUrlEncoded.get("query").head
+    val history = Seq.empty[JsObject] // Replace with actual history if needed
+    val docs = Seq.empty[JsObject] // Replace with actual documents if needed
 
     ws
       .url(s"${config.get[String]("server_url")}/chat")
@@ -57,23 +56,15 @@ class HomeController @Inject()(
         val question = (jsonResponse \ "question").as[String]
         val fetchedNewDocuments = (jsonResponse \ "fetched_new_documents").as[Boolean]
 
-        // Create a JSON object to send back to the client
-        val result = Json.obj(
-          "reply" -> reply,
-          "history" -> newHistory,
-          "documents" -> documents,
-          "rewritten" -> rewritten,
-          "question" -> question,
-          "fetched_new_documents" -> fetchedNewDocuments
-        )
+        // Create a list of messages to send back to the client
+        val messages = Seq(reply) // Add more messages if needed
 
-        Future.successful(Ok(result))
+        Future.successful(Ok(views.html.index(config, messages)))
       }
   }
 
   def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
-    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
-    val query = (json \ "query").as[String]
+    val query = request.body.asFormUrlEncoded.get("query").head
 
     ws
       .url(s"${config.get[String]("server_url")}/generate_quiz")
@@ -83,9 +74,8 @@ class HomeController @Inject()(
   }
 
   def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
-    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
-    val questions = (json \ "questions").as[Seq[String]]
-    val history = (json \ "history").as[Seq[JsObject]]
+    val questions = request.body.asFormUrlEncoded.get("questions").map(_.split(",")).getOrElse(Seq.empty)
+    val history = Seq.empty[JsObject] // Replace with actual history if needed
 
     ws
       .url(s"${config.get[String]("server_url")}/generate_answers")
@@ -98,9 +88,8 @@ class HomeController @Inject()(
   }
 
   def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
-    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
-    val userAnswers = (json \ "user_answers").as[Seq[String]]
-    val generatedAnswers = (json \ "generated_answers").as[Seq[String]]
+    val userAnswers = request.body.asFormUrlEncoded.get("user_answers").map(_.split(",")).getOrElse(Seq.empty)
+    val generatedAnswers = request.body.asFormUrlEncoded.get("generated_answers").map(_.split(",")).getOrElse(Seq.empty)
 
     ws
       .url(s"${config.get[String]("server_url")}/check_answers")
