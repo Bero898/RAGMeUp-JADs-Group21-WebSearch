@@ -13,11 +13,11 @@ from provenance import (DocumentSimilarityAttribution,
                         compute_rerank_provenance)
 from RAGHelper import RAGHelper
 
-from SubtopicIdentifierAgent import SubtopicIdentifierAgent
-from QuestionGeneratorAgent import QuestionGeneratorAgent
-from RelevanceCheckerAgent import RelevanceCheckerAgent
-from SQLQueryGeneratorAgent import SQLQueryGeneratorAgent
-
+from server.agents.SubtopicIdentifierAgent import SubtopicIdentifierAgent
+from server.agents.QuestionGeneratorAgent import QuestionGeneratorAgent
+from server.agents.RelevanceCheckerAgent import RelevanceCheckerAgent
+from server.agents.AnswerGeneratorAgent import AnswerGeneratorAgent
+from server.agents.QuizCheckerAgent import QuizCheckerAgent
 
 def combine_results(inputs: dict) -> dict:
     """Combine the results of the user query processing.
@@ -36,7 +36,6 @@ def combine_results(inputs: dict) -> dict:
 
 class RAGHelperCloud(RAGHelper):
     def __init__(self, logger):
-        """Initialize the RAGHelperCloud instance with required models and configurations."""
         super().__init__(logger)
         self.rewrite_chain = None
         self.rewrite_ask_chain = None
@@ -51,7 +50,8 @@ class RAGHelperCloud(RAGHelper):
             "subtopic_identifier": SubtopicIdentifierAgent(self.llm),
             "question_generator": QuestionGeneratorAgent(self.llm),
             "relevance_checker": RelevanceCheckerAgent(self.llm),
-            "sql_query_generator": SQLQueryGeneratorAgent(self.llm),
+            "answer_generator": AnswerGeneratorAgent(self.llm),
+            "quiz_checker": QuizCheckerAgent(self.llm)
         }
 
         # Load the data
@@ -327,17 +327,17 @@ class RAGHelperCloud(RAGHelper):
             response = response["answer"]
         return response
 
-    def chain_agents(self, user_query: str, history: list) -> dict:
-        # Agent 1: Identify subtopics
+    def generate_quiz(self, user_query: str) -> dict:
         subtopics = self.agents["subtopic_identifier"].identify_subtopics(user_query)
-
-        # Agent 2: Generate questions
         questions = self.agents["question_generator"].generate_questions(subtopics)
-
-        # Agent 3: Check relevance
         relevant_questions = self.agents["relevance_checker"].check_relevance(questions, user_query)
+        return {"questions": relevant_questions}
 
-        # Agent 4: Generate SQL queries
-        sql_queries = self.agents["sql_query_generator"].generate_sql_queries(relevant_questions)
+    def generate_answers(self, questions: list, history: list) -> dict:
+        validated_docs = self.retrieve_documents(questions)
+        answers = self.agents["answer_generator"].generate(questions, validated_docs, history)
+        return answers
 
-        return {"sql_queries": sql_queries, "history": history}
+    def check_answers(self, user_answers: list, generated_answers: list) -> dict:
+        feedback = self.agents["quiz_checker"].check_answers(user_answers, generated_answers)
+        return feedback
