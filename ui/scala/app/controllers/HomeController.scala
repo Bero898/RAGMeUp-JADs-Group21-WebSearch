@@ -73,19 +73,19 @@ class HomeController @Inject()(
       .map(response => Ok(response.json))
   }
 
-  def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
-    val questions = request.body.asFormUrlEncoded.get("questions").map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
-    val history = Seq.empty[JsObject] // Replace with actual history if needed
+def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
+  val questions = request.body.asFormUrlEncoded.get("questions").map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
+  val history = Seq.empty[JsObject] // Replace with actual history if needed
 
-    ws
-      .url(s"${config.get[String]("server_url")}/generate_answers")
-      .withRequestTimeout(5 minutes)
-      .post(Json.obj(
-        "questions" -> questions,
-        "history" -> history
-      ))
-      .map(response => Ok(response.json))
-  }
+  ws
+    .url(s"${config.get[String]("server_url")}/generate_answers")
+    .withRequestTimeout(5 minutes)
+    .post(Json.obj(
+      "questions" -> questions,
+      "history" -> history
+    ))
+    .map(response => Ok(response.json))
+}
 
   def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
     val userAnswers = request.body.asFormUrlEncoded.get("user_answers").map(_.split(",")).getOrElse(Seq.empty)
