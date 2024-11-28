@@ -3,14 +3,12 @@ package controllers
 import javax.inject._
 import play.api._
 import play.api.http.HttpEntity
-
-import java.nio.file.Paths
 import play.api.libs.json._
 import play.api.mvc._
 import play.api.libs.ws._
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
 @Singleton
@@ -18,7 +16,7 @@ class HomeController @Inject()(
     cc: ControllerComponents,
     config: Configuration,
     ws: WSClient
-) (implicit ec: ExecutionContext) extends AbstractController(cc) {
+)(implicit ec: ExecutionContext) extends AbstractController(cc) {
 
   def index() = Action { implicit request: Request[AnyContent] =>
     Ok(views.html.index(config))
@@ -48,9 +46,70 @@ class HomeController @Inject()(
         "history" -> history,
         "docs" -> docs
       ))
-      .map(response =>
-          Ok(response.json)
-      )
+      .flatMap { response =>
+        val jsonResponse = response.json
+
+        // Extract relevant fields from the JSON response
+        val reply = (jsonResponse \ "reply").as[String]
+        val newHistory = (jsonResponse \ "history").as[Seq[JsObject]]
+        val documents = (jsonResponse \ "documents").as[Seq[JsObject]]
+        val rewritten = (jsonResponse \ "rewritten").as[Boolean]
+        val question = (jsonResponse \ "question").as[String]
+        val fetchedNewDocuments = (jsonResponse \ "fetched_new_documents").as[Boolean]
+
+        // Create a JSON object to send back to the client
+        val result = Json.obj(
+          "reply" -> reply,
+          "history" -> newHistory,
+          "documents" -> documents,
+          "rewritten" -> rewritten,
+          "question" -> question,
+          "fetched_new_documents" -> fetchedNewDocuments
+        )
+
+        Future.successful(Ok(result))
+      }
+  }
+
+  def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
+    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
+    val query = (json \ "query").as[String]
+
+    ws
+      .url(s"${config.get[String]("server_url")}/generate_quiz")
+      .withRequestTimeout(5 minutes)
+      .post(Json.obj("query" -> query))
+      .map(response => Ok(response.json))
+  }
+
+  def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
+    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
+    val questions = (json \ "questions").as[Seq[String]]
+    val history = (json \ "history").as[Seq[JsObject]]
+
+    ws
+      .url(s"${config.get[String]("server_url")}/generate_answers")
+      .withRequestTimeout(5 minutes)
+      .post(Json.obj(
+        "questions" -> questions,
+        "history" -> history
+      ))
+      .map(response => Ok(response.json))
+  }
+
+  def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
+    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
+    val userAnswers = (json \ "user_answers").as[Seq[String]]
+    val generatedAnswers = (json \ "generated_answers").as[Seq[String]]
+
+    ws
+      .url(s"${config.get[String]("server_url")}/check_answers")
+      .withRequestTimeout(5 minutes)
+      .post(Json.obj(
+        "user_answers" -> userAnswers,
+        "generated_answers" -> generatedAnswers
+      ))
+      .map(response => Ok(response.json))
   }
 
   def download(file: String) = Action.async { implicit request: Request[AnyContent] =>

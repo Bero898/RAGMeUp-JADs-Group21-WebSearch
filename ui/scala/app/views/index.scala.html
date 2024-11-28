@@ -1,6 +1,6 @@
 @import views.html.helper._
 @import play.api.mvc.RequestHeader
-@(config: play.api.Configuration)(implicit request: RequestHeader)
+@(config: play.api.Configuration, messages: Seq[String])(implicit request: RequestHeader)
 
 @main() {
 <div id="mainContainer" class="container">
@@ -11,17 +11,23 @@
       </h3>
 
       <div class="input-group mb-3">
-          <input type="text" id="query" class="form-control" placeholder="Enter your query on your own documents..." name="query">
-          <button class="btn btn-primary" type="submit" id="submitBtn">
-            Go!
-          </button>
+          <form action="@routes.HomeController.search()" method="post">
+              <input type="text" id="query" class="form-control" placeholder="Enter your query on your own documents..." name="query">
+              <button class="btn btn-primary" type="submit" id="submitBtn">
+                Go!
+              </button>
+          </form>
       </div>
     </div>
   </div>
 </div>
 <div class="row">
   <div class="col-md-10 offset-md-1">
-    <div id="dialogue" style="display: none;"></div>
+    <div id="dialogue">
+      @for(message <- messages) {
+          <p>@message</p>
+      }
+    </div>
   </div>
 </div>
 <div class="offset-md-1 col-md-10 chatinput" id="chatinputcontainer">
@@ -222,7 +228,7 @@
 
         addMessage(query, true);
         $("#loader").show();
-        $(dialogue).show();
+        $("#dialogue").show();
 
         $.ajax({
             type: "POST",
