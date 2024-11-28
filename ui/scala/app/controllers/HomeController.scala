@@ -45,7 +45,7 @@ class HomeController @Inject()(
       ))
       .map { response =>
         try {
-          Ok(Json.obj("messages" -> Json.arr(response.json \ "reply")))
+          Ok(Json.obj("messages" -> Json.arr((response.json \ "reply").as[String])))
         } catch {
           case e: Exception =>
             logger.error("Error processing response", e)
@@ -207,6 +207,12 @@ def delete(file: String) = Action.async { implicit request =>
       val deleteCount = (response.json.as[JsObject] \ "count").asOpt[Int].getOrElse(0)
       Redirect(routes.HomeController.add())
         .flashing("success" -> s"File $file has been deleted ($deleteCount chunks in total).")
+    }
+    .recover {
+      case e: Exception =>
+        logger.error("Error deleting file", e)
+        Redirect(routes.HomeController.add())
+          .flashing("error" -> s"Failed to delete file: ${e.getMessage}")
     }
 }
 
