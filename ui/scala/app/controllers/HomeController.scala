@@ -17,7 +17,7 @@ class HomeController @Inject()(
     cc: ControllerComponents,
     config: Configuration,
     ws: WSClient
-)(implicit ec: ExecutionContext) extends AbstractController(cc) {
+)(implicit ec: ExecutionContext) extends AbstractController(cc) with play.api.Logging {
 
   def index() = Action { implicit request: Request[AnyContent] =>
     Ok(views.html.index(config, Seq.empty[String]))
