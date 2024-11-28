@@ -45,15 +45,6 @@ class RAGHelperCloud(RAGHelper):
         self.llm = self.initialize_llm()
         self.embeddings = self.initialize_embeddings()
 
-        # Initialize agents
-        self.agents = {
-            "subtopic_identifier": SubtopicIdentifierAgent(self.llm),
-            "question_generator": QuestionGeneratorAgent(self.llm),
-            "relevance_checker": RelevanceCheckerAgent(self.llm),
-            "answer_generator": AnswerGeneratorAgent(self.llm),
-            "quiz_checker": QuizCheckerAgent(self.llm)
-        }
-
         # Load the data
         self.load_data()
         self.initialize_rag_chains()
@@ -328,16 +319,31 @@ class RAGHelperCloud(RAGHelper):
         return response
 
     def generate_quiz(self, user_query: str) -> dict:
-        subtopics = self.agents["subtopic_identifier"].identify_subtopics(user_query)
-        questions = self.agents["question_generator"].generate_questions(subtopics)
-        relevant_questions = self.agents["relevance_checker"].check_relevance(questions, user_query)
-        return {"questions": relevant_questions}
+            from server.agents.SubtopicIdentifierAgent import SubtopicIdentifierAgent
+            from server.agents.QuestionGeneratorAgent import QuestionGeneratorAgent
+            from server.agents.RelevanceCheckerAgent import RelevanceCheckerAgent
+
+            subtopic_identifier = SubtopicIdentifierAgent(self.llm)
+            question_generator = QuestionGeneratorAgent(self.llm)
+            relevance_checker = RelevanceCheckerAgent(self.llm)
+
+            subtopics = subtopic_identifier.identify_subtopics(user_query)
+            questions = question_generator.generate_questions(subtopics)
+            relevant_questions = relevance_checker.check_relevance(questions, user_query)
+            return {"questions": relevant_questions}
+
 
     def generate_answers(self, questions: list, history: list) -> dict:
-        validated_docs = self.retrieve_documents(questions)
-        answers = self.agents["answer_generator"].generate(questions, validated_docs, history)
-        return answers
+        from server.agents.AnswerGeneratorAgent import AnswerGeneratorAgent
 
+        validated_docs = self.retrieve_documents(questions)
+        answer_generator = AnswerGeneratorAgent(self.llm)
+        answers = answer_generator.generate(questions, validated_docs, history)
+        return answers
+    
     def check_answers(self, user_answers: list, generated_answers: list) -> dict:
-        feedback = self.agents["quiz_checker"].check_answers(user_answers, generated_answers)
+        from server.agents.QuizCheckerAgent import QuizCheckerAgent
+
+        quiz_checker = QuizCheckerAgent(self.llm)
+        feedback = quiz_checker.check_answers(user_answers, generated_answers)
         return feedback
