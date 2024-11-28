@@ -121,32 +121,32 @@ def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
       }
   }
 
-  def upload() = Action(parse.multipartFormData) { implicit request =>
-    request.body.file("file").map { file =>
-      val filename = Paths.get(file.filename).getFileName.toString
-      val dataFolder = config.get[String]("data_folder")
-      val filePath = new java.io.File(s"$dataFolder/$filename")
+def upload() = Action(parse.multipartFormData) { implicit request =>
+  request.body.file("file").map { file =>
+    val filename = Paths.get(file.filename).getFileName.toString
+    val dataFolder = config.get[String]("data_folder")
+    val filePath = Paths.get(s"$dataFolder/$filename")
 
-      file.ref.copyTo(filePath, overwrite = true)
+    file.ref.copyTo(filePath, replace = true)
 
-      Redirect(routes.HomeController.add()).flashing("success" -> "Added CV to the database.")
-    }.getOrElse {
-      Redirect(routes.HomeController.add()).flashing("error" -> "Adding CV to database failed.")
+    Redirect(routes.HomeController.add()).flashing("success" -> "Added CV to the database.")
+  }.getOrElse {
+    Redirect(routes.HomeController.add()).flashing("error" -> "Adding CV to database failed.")
+  }
+}
+
+def delete(file: String) = Action.async { implicit request =>
+  ws.url(s"${config.get[String]("server_url")}/delete")
+    .withRequestTimeout(5.minutes)
+    .post(Json.obj("filename" -> file))
+    .map { response =>
+      val deleteCount = (response.json.as[JsObject] \ "count").asOpt[Int].getOrElse(0)
+      Redirect(routes.HomeController.add())
+        .flashing("success" -> s"File $file has been deleted ($deleteCount chunks in total).")
     }
-  }
+}
 
-  def delete(file: String) = Action.async { implicit request =>
-    ws.url(s"${config.get[String]("server_url")}/delete")
-      .withRequestTimeout(5.minutes)
-      .post(Json.obj("filename" -> file))
-      .map { response =>
-        val deleteCount = (response.json.as[JsObject] \ "count").asOpt[Int].getOrElse(0)
-        Redirect(routes.HomeController.add())
-          .flashing("success" -> s"File $file has been deleted ($deleteCount chunks in total).")
-      }
-  }
-
-  def feedback() = Action { implicit request: Request[AnyContent] =>
-    Ok(Json.obj())
-  }
+def feedback() = Action { implicit request: Request[AnyContent] =>
+  Ok(Json.obj())
+}
 }
