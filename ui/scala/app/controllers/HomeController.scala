@@ -6,6 +6,7 @@ import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.mvc._
 import play.api.libs.ws._
+import java.nio.file.Paths
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,7 +26,7 @@ class HomeController @Inject()(
   def add() = Action.async { implicit request: Request[AnyContent] =>
     ws
       .url(s"${config.get[String]("server_url")}/get_documents")
-      .withRequestTimeout(5 minutes)
+      .withRequestTimeout(5.minutes)
       .get()
       .map(files => {
         Ok(views.html.add(files.json.as[Seq[String]]))
@@ -33,13 +34,13 @@ class HomeController @Inject()(
   }
 
   def search() = Action.async { implicit request: Request[AnyContent] =>
-    val query = request.body.asFormUrlEncoded.get("query").head
-    val history = Seq.empty[JsObject] // Replace with actual history if needed
-    val docs = Seq.empty[JsObject] // Replace with actual documents if needed
+    val query = request.body.asFormUrlEncoded.flatMap(_.get("query")).getOrElse(Seq.empty).headOption.getOrElse("")
+    val history = Seq.empty[JsObject]
+    val docs = Seq.empty[JsObject]
 
     ws
       .url(s"${config.get[String]("server_url")}/chat")
-      .withRequestTimeout(5 minutes)
+      .withRequestTimeout(5.minutes)
       .post(Json.obj(
         "prompt" -> query,
         "history" -> history,
@@ -48,52 +49,44 @@ class HomeController @Inject()(
       .flatMap { response =>
         val jsonResponse = response.json
 
-        // Extract relevant fields from the JSON response
-        val reply = (jsonResponse \ "reply").as[String]
-        val newHistory = (jsonResponse \ "history").as[Seq[JsObject]]
-        val documents = (jsonResponse \ "documents").as[Seq[JsObject]]
-        val rewritten = (jsonResponse \ "rewritten").as[Boolean]
-        val question = (jsonResponse \ "question").as[String]
-        val fetchedNewDocuments = (jsonResponse \ "fetched_new_documents").as[Boolean]
-
-        // Create a list of messages to send back to the client
-        val messages = Seq(reply) // Add more messages if needed
+        val reply = (jsonResponse \ "reply").asOpt[String].getOrElse("")
+        val messages = Seq(reply)
 
         Future.successful(Ok(views.html.index(config, messages)))
       }
   }
 
   def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
-    val query = request.body.asFormUrlEncoded.get("query").head
+    val query = request.body.asFormUrlEncoded.flatMap(_.get("query")).getOrElse(Seq.empty).headOption.getOrElse("")
 
     ws
       .url(s"${config.get[String]("server_url")}/generate_quiz")
-      .withRequestTimeout(5 minutes)
+      .withRequestTimeout(5.minutes)
       .post(Json.obj("query" -> query))
       .map(response => Ok(response.json))
   }
 
-def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
-  val questions = request.body.asFormUrlEncoded.get("questions").map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
-  val history = Seq.empty[JsObject] // Replace with actual history if needed
+  def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
+    val questions = request.body.asFormUrlEncoded.flatMap(_.get("questions")).map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
+    val history = Seq.empty[JsObject]
 
-  ws
-    .url(s"${config.get[String]("server_url")}/generate_answers")
-    .withRequestTimeout(5 minutes)
-    .post(Json.obj(
-      "questions" -> questions,
-      "history" -> history
-    ))
-    .map(response => Ok(response.json))
-}
+    ws
+      .url(s"${config.get[String]("server_url")}/generate_answers")
+      .withRequestTimeout(5.minutes)
+      .post(Json.obj(
+        "questions" -> questions,
+        "history" -> history
+      ))
+      .map(response => Ok(response.json))
+  }
 
   def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
-    val userAnswers = request.body.asFormUrlEncoded.get("user_answers").map(_.split(",")).getOrElse(Seq.empty)
-    val generatedAnswers = request.body.asFormUrlEncoded.get("generated_answers").map(_.split(",")).getOrElse(Seq.empty)
+    val userAnswers = request.body.asFormUrlEncoded.flatMap(_.get("user_answers")).map(_.split(",")).getOrElse(Seq.empty)
+    val generatedAnswers = request.body.asFormUrlEncoded.flatMap(_.get("generated_answers")).map(_.split(",")).getOrElse(Seq.empty)
 
     ws
       .url(s"${config.get[String]("server_url")}/check_answers")
-      .withRequestTimeout(5 minutes)
+      .withRequestTimeout(5.minutes)
       .post(Json.obj(
         "user_answers" -> userAnswers,
         "generated_answers" -> generatedAnswers
@@ -107,13 +100,11 @@ def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
       .post(Json.obj("filename" -> file))
       .map { response =>
         if (response.status == 200) {
-          // Get the content type and filename from headers
           val contentType = response.header("Content-Type").getOrElse("application/octet-stream")
           val disposition = response.header("Content-Disposition").getOrElse("")
           val filenameRegex = """filename="?(.+)"?""".r
           val downloadFilename = filenameRegex.findFirstMatchIn(disposition).map(_.group(1)).getOrElse(file)
 
-          // Stream the response body to the user
           Result(
             header = ResponseHeader(200, Map(
               "Content-Disposition" -> s"""attachment; filename="$downloadFilename"""",
@@ -126,19 +117,18 @@ def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
             )
           )
         } else {
-          // Handle error cases
           Status(response.status)(s"Error: ${response.statusText}")
         }
       }
   }
 
-  def upload = Action(parse.multipartFormData) { implicit request =>
+  def upload() = Action(parse.multipartFormData) { implicit request =>
     request.body.file("file").map { file =>
-      val filename = Paths.get(file.filename).getFileName
+      val filename = Paths.get(file.filename).getFileName.toString
       val dataFolder = config.get[String]("data_folder")
       val filePath = new java.io.File(s"$dataFolder/$filename")
 
-      file.ref.copyTo(filePath)
+      file.ref.copyTo(filePath, overwrite = true)
 
       Redirect(routes.HomeController.add()).flashing("success" -> "Added CV to the database.")
     }.getOrElse {
@@ -151,9 +141,9 @@ def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
       .withRequestTimeout(5.minutes)
       .post(Json.obj("filename" -> file))
       .map { response =>
-        val deleteCount = (response.json.as[JsObject] \ "count").as[Int]
+        val deleteCount = (response.json.as[JsObject] \ "count").asOpt[Int].getOrElse(0)
         Redirect(routes.HomeController.add())
-          .flashing("success" -> s"File ${file} has been deleted (${deleteCount} chunks in total).")
+          .flashing("success" -> s"File $file has been deleted ($deleteCount chunks in total).")
       }
   }
 
