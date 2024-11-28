@@ -74,7 +74,7 @@ class HomeController @Inject()(
   }
 
   def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
-    val questions = request.body.asFormUrlEncoded.get("questions").map(_.split(",")).getOrElse(Seq.empty)
+    val questions = request.body.asFormUrlEncoded.get("questions").map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
     val history = Seq.empty[JsObject] // Replace with actual history if needed
 
     ws
