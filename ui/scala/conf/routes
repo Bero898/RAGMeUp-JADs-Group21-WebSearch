@@ -14,6 +14,7 @@ POST    /feedback                   controllers.HomeController.feedback()
 POST    /search         controllers.HomeController.search()
 POST    /generate_quiz  controllers.HomeController.generateQuiz()
 POST    /check_answers    controllers.HomeController.checkAnswers()
+POST    /chat          controllers.HomeController.chat()
 # Map static resources from the /public folder to the /assets URL path
 GET     /webjars/*file              controllers.Assets.at(path="/public/lib", file)
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)

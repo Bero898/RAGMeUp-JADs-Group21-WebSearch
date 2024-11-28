@@ -33,6 +33,47 @@ class HomeController @Inject()(
       })
   }
 
+  def chat() = Action.async { implicit request: Request[AnyContent] =>
+  def processChat(query: String) = {
+    ws.url(s"${config.get[String]("server_url")}/chat")
+      .withRequestTimeout(5.minutes)
+      .withHttpHeaders("Content-Type" -> "application/json")
+      .post(Json.obj(
+        "query" -> query,
+        "history" -> Json.arr(),
+        "docs" -> Json.arr()
+      ))
+      .map { response =>
+        try {
+          Ok(Json.obj("messages" -> Json.arr((response.json \ "reply").as[String])))
+        } catch {
+          case e: Exception =>
+            logger.error("Error processing chat response", e)
+            InternalServerError(Json.obj("error" -> "Failed to process chat response"))
+        }
+      }
+      .recover {
+        case e: Exception =>
+          logger.error("Error calling chat server", e)
+          InternalServerError(Json.obj("error" -> e.getMessage))
+      }
+  }
+
+  request.body match {
+    case AnyContentAsJson(json) =>
+      (json \ "query").asOpt[String] match {
+        case Some(query) => processChat(query)
+        case None => Future.successful(BadRequest("Missing query parameter"))
+      }
+    case AnyContentAsFormUrlEncoded(form) =>
+      form.get("query").flatMap(_.headOption) match {
+        case Some(query) => processChat(query)
+        case None => Future.successful(BadRequest("Missing query parameter"))
+      }
+    case _ => Future.successful(BadRequest("Invalid request format"))
+  }
+}
+
  def search() = Action.async { implicit request: Request[AnyContent] =>
   def processQuery(query: String) = {
     ws.url(s"${config.get[String]("server_url")}/chat")
@@ -215,6 +256,8 @@ def delete(file: String) = Action.async { implicit request =>
           .flashing("error" -> s"Failed to delete file: ${e.getMessage}")
     }
 }
+
+
 
 def feedback() = Action { implicit request: Request[AnyContent] =>
   Ok(Json.obj())
