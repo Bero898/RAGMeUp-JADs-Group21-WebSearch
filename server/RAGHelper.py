@@ -23,12 +23,6 @@ from PostgresBM25Retriever import PostgresBM25Retriever
 from ScoredCrossEncoderReranker import  ScoredCrossEncoderReranker
 from tqdm import tqdm
 
-from server.agents.QuestionGeneratorAgent import QuestionGeneratorAgent
-from server.agents.SubtopicIdentifierAgent import SubtopicIdentifierAgent
-from server.agents.RelevanceCheckerAgent import RelevanceCheckerAgent
-from server.agents.AnswerGeneratorAgent import AnswerGeneratorAgent
-from server.agents.QuizCheckerAgent import QuizCheckerAgent
-
 
 class RAGHelper:
     """
