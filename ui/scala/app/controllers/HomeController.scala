@@ -80,20 +80,19 @@ class HomeController @Inject()(
       .map(response => Ok(response.json))
   }
 
-  def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
-    val userAnswers = request.body.asFormUrlEncoded.flatMap(_.get("user_answers")).map(_.split(",")).getOrElse(Seq.empty)
-    val generatedAnswers = request.body.asFormUrlEncoded.flatMap(_.get("generated_answers")).map(_.split(",")).getOrElse(Seq.empty)
+def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
+  val userAnswers = request.body.asFormUrlEncoded.flatMap(_.get("user_answers")).map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
+  val generatedAnswers = request.body.asFormUrlEncoded.flatMap(_.get("generated_answers")).map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
 
-    ws
-      .url(s"${config.get[String]("server_url")}/check_answers")
-      .withRequestTimeout(5.minutes)
-      .post(Json.obj(
-        "user_answers" -> userAnswers,
-        "generated_answers" -> generatedAnswers
-      ))
-      .map(response => Ok(response.json))
-  }
-
+  ws
+    .url(s"${config.get[String]("server_url")}/check_answers")
+    .withRequestTimeout(5.minutes)
+    .post(Json.obj(
+      "user_answers" -> userAnswers,
+      "generated_answers" -> generatedAnswers
+    ))
+    .map(response => Ok(response.json))
+}
   def download(file: String) = Action.async { implicit request: Request[AnyContent] =>
     ws.url(s"${config.get[String]("server_url")}/get_document")
       .withRequestTimeout(5.minutes)
