@@ -33,65 +33,129 @@ class HomeController @Inject()(
       })
   }
 
-  def search() = Action.async { implicit request: Request[AnyContent] =>
-    val query = request.body.asFormUrlEncoded.flatMap(_.get("query")).getOrElse(Seq.empty).headOption.getOrElse("")
-    val history = Seq.empty[JsObject]
-    val docs = Seq.empty[JsObject]
-
-    ws
-      .url(s"${config.get[String]("server_url")}/chat")
+ def search() = Action.async { implicit request: Request[AnyContent] =>
+  def processQuery(query: String) = {
+    ws.url(s"${config.get[String]("server_url")}/chat")
       .withRequestTimeout(5.minutes)
+      .withHttpHeaders("Content-Type" -> "application/json")
       .post(Json.obj(
-        "prompt" -> query,
-        "history" -> history,
-        "docs" -> docs
+        "query" -> query,
+        "history" -> Json.arr(),
+        "docs" -> Json.arr()
       ))
-      .flatMap { response =>
-        val jsonResponse = response.json
-
-        val reply = (jsonResponse \ "reply").asOpt[String].getOrElse("")
-        val messages = Seq(reply)
-
-        Future.successful(Ok(views.html.index(config, messages)))
+      .map { response =>
+        try {
+          Ok(Json.obj("messages" -> Json.arr(response.json \ "reply")))
+        } catch {
+          case e: Exception =>
+            logger.error("Error processing response", e)
+            InternalServerError(Json.obj("error" -> "Failed to process response"))
+        }
+      }
+      .recover {
+        case e: Exception =>
+          logger.error("Error calling server", e)
+          InternalServerError(Json.obj("error" -> e.getMessage))
       }
   }
 
-  def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
-    val query = request.body.asFormUrlEncoded.flatMap(_.get("query")).getOrElse(Seq.empty).headOption.getOrElse("")
+  request.body match {
+    case AnyContentAsJson(json) =>
+      val query = (json \ "query").as[String]
+      processQuery(query)
+    case AnyContentAsFormUrlEncoded(form) =>
+      form.get("query").flatMap(_.headOption) match {
+        case Some(query) => processQuery(query)
+        case None => Future.successful(BadRequest("Missing query parameter"))
+      }
+    case _ => Future.successful(BadRequest("Invalid request format"))
+  }
+}
 
-    ws
-      .url(s"${config.get[String]("server_url")}/generate_quiz")
+def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
+  def processQuizRequest(query: String) = {
+    ws.url(s"${config.get[String]("server_url")}/generate_quiz")
       .withRequestTimeout(5.minutes)
+      .withHttpHeaders("Content-Type" -> "application/json")
       .post(Json.obj("query" -> query))
-      .map(response => Ok(response.json))
+      .map { response =>
+        try {
+          val questions = (response.json \ "questions").as[Seq[String]]
+          Ok(Json.obj(
+            "questions" -> questions,
+            "messages" -> Json.arr("Quiz generated successfully")
+          ))
+        } catch {
+          case e: Exception =>
+            logger.error("Error processing quiz response", e)
+            BadRequest(Json.obj("error" -> "Failed to process quiz response"))
+        }
+      }
+      .recover {
+        case e: Exception =>
+          logger.error("Error generating quiz", e)
+          InternalServerError(Json.obj("error" -> e.getMessage))
+      }
   }
 
-  def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
-    val questions = request.body.asFormUrlEncoded.flatMap(_.get("questions")).map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
-    val history = Seq.empty[JsObject]
-
-    ws
-      .url(s"${config.get[String]("server_url")}/generate_answers")
-      .withRequestTimeout(5.minutes)
-      .post(Json.obj(
-        "questions" -> questions,
-        "history" -> history
-      ))
-      .map(response => Ok(response.json))
+  request.body match {
+    case AnyContentAsJson(json) =>
+      val query = (json \ "query").as[String]
+      processQuizRequest(query)
+    case AnyContentAsFormUrlEncoded(form) =>
+      form.get("query").flatMap(_.headOption) match {
+        case Some(query) => processQuizRequest(query)
+        case None => Future.successful(BadRequest("Missing query parameter"))
+      }
+    case _ => Future.successful(BadRequest("Invalid request format"))
   }
+}
 
 def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
-  val userAnswers = request.body.asFormUrlEncoded.flatMap(_.get("user_answers")).map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
-  val generatedAnswers = request.body.asFormUrlEncoded.flatMap(_.get("generated_answers")).map(_.flatMap(_.split(","))).getOrElse(Seq.empty)
+  def processAnswers(userAnswers: Seq[String], generatedAnswers: Seq[String]) = {
+    ws.url(s"${config.get[String]("server_url")}/check_answers")
+      .withRequestTimeout(5.minutes)
+      .withHttpHeaders("Content-Type" -> "application/json")
+      .post(Json.obj(
+        "user_answers" -> userAnswers,
+        "generated_answers" -> generatedAnswers
+      ))
+      .map { response =>
+        try {
+          val feedback = (response.json \ "feedback").as[Seq[String]]
+          Ok(Json.obj("feedback" -> feedback))
+        } catch {
+          case e: Exception =>
+            logger.error("Error processing feedback", e)
+            BadRequest(Json.obj("error" -> "Failed to process feedback"))
+        }
+      }
+      .recover {
+        case e: Exception =>
+          logger.error("Error checking answers", e)
+          InternalServerError(Json.obj("error" -> e.getMessage))
+      }
+  }
 
-  ws
-    .url(s"${config.get[String]("server_url")}/check_answers")
-    .withRequestTimeout(5.minutes)
-    .post(Json.obj(
-      "user_answers" -> userAnswers,
-      "generated_answers" -> generatedAnswers
-    ))
-    .map(response => Ok(response.json))
+  request.body match {
+    case AnyContentAsJson(json) =>
+      val userAnswers = (json \ "user_answers").as[Seq[String]]
+      val generatedAnswers = (json \ "generated_answers").as[Seq[String]]
+      processAnswers(userAnswers, generatedAnswers)
+    case AnyContentAsFormUrlEncoded(form) =>
+      val result = for {
+        ua <- form.get("user_answers").map(_.headOption.map(_.split(",").toSeq))
+        ga <- form.get("generated_answers").map(_.headOption.map(_.split(",").toSeq))
+      } yield (ua, ga)
+
+      result.flatten match {
+        case Some((userAnswers, generatedAnswers)) => 
+          processAnswers(userAnswers, generatedAnswers)
+        case None =>
+          Future.successful(BadRequest("Missing answer parameters"))
+      }
+    case _ => Future.successful(BadRequest("Invalid request format"))
+  }
 }
   def download(file: String) = Action.async { implicit request: Request[AnyContent] =>
     ws.url(s"${config.get[String]("server_url")}/get_document")
