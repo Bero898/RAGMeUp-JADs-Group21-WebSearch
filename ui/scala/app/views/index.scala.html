@@ -87,51 +87,50 @@ $(document).ready(function() {
     handleSubmit($form, formData);
   });
 
-  function handleSubmit($form, formData) {
-    $('#loader').show();
-    addMessage(formData.query, true);
+function handleSubmit($form, formData) {
+  $('#loader').show();
+  addMessage(formData.query, true);
 
-    $.ajax({
-      url: $form.attr('action'),
-      type: 'POST',
-      contentType: 'application/json',
-      data: JSON.stringify(formData),
-      success: function(response) {
-        $('#loader').hide();
-        
-        if (response.rewritten) {
-          addMessage('<span style="color: #ccc; font-style: italic;">Rewritten: ' + response.question + '</span>', true);
-        }
-
-        if (response.reply) {
-          addMessage(response.reply, false);
-        }
-
-        if (response.documents) {
-          documents = response.documents;
-          if (documents.length > 0 && response.fetched_new_documents) {
-            presentDocuments(documents);
-          }
-        }
-
-        if (response.questions) {
-          showQuiz(response.questions);
-        }
-
-        if (response.feedback) {
-          showFeedback(response.feedback);
-        }
-
-        chathistory = response.history || chathistory;
-        $form.find('input[name="query"]').val('');
-      },
-      error: function(xhr, status, error) {
-        $('#loader').hide();
-        addMessage('Error: ' + error, false);
+  $.ajax({
+    url: $form.attr('action'), // This should be `/chat` if mapped correctly
+    type: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify(formData),
+    success: function(response) {
+      $('#loader').hide();
+      
+      if (response.rewritten) {
+        addMessage('<span style="color: #ccc; font-style: italic;">Rewritten: ' + response.question + '</span>', true);
       }
-    });
-  }
 
+      if (response.reply) {
+        addMessage(response.reply, false);
+      }
+
+      if (response.documents) {
+        documents = response.documents;
+        if (documents.length > 0 && response.fetched_new_documents) {
+          presentDocuments(documents);
+        }
+      }
+
+      if (response.questions) {
+        showQuiz(response.questions);
+      }
+
+      if (response.feedback) {
+        showFeedback(response.feedback);
+      }
+
+      chathistory = response.history || chathistory;
+      $form.find('input[name="query"]').val('');
+    },
+    error: function(xhr, status, error) {
+      $('#loader').hide();
+      addMessage('Error: ' + error, false);
+    }
+  });
+}
   // Keep existing functions
   function addMessage(message, isHuman) { /* ... */ }
   function presentDocuments(documents) { /* ... */ }
