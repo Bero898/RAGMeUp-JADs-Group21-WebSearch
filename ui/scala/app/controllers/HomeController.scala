@@ -143,16 +143,16 @@ def checkAnswers() = Action.async { implicit request: Request[AnyContent] =>
       val generatedAnswers = (json \ "generated_answers").as[Seq[String]]
       processAnswers(userAnswers, generatedAnswers)
     case AnyContentAsFormUrlEncoded(form) =>
-      val result = for {
-        ua <- form.get("user_answers").map(_.headOption.map(_.split(",").toSeq))
-        ga <- form.get("generated_answers").map(_.headOption.map(_.split(",").toSeq))
-      } yield (ua, ga)
+      val userAnswers = form.get("user_answers")
+        .flatMap(_.headOption)
+        .map(_.split(",").toSeq)
+      val generatedAnswers = form.get("generated_answers")
+        .flatMap(_.headOption)
+        .map(_.split(",").toSeq)
 
-      result.flatten match {
-        case Some((userAnswers, generatedAnswers)) => 
-          processAnswers(userAnswers, generatedAnswers)
-        case None =>
-          Future.successful(BadRequest("Missing answer parameters"))
+      (userAnswers, generatedAnswers) match {
+        case (Some(ua), Some(ga)) => processAnswers(ua, ga)
+        case _ => Future.successful(BadRequest("Missing answer parameters"))
       }
     case _ => Future.successful(BadRequest("Invalid request format"))
   }
