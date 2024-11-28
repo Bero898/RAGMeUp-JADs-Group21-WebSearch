@@ -13,6 +13,11 @@ from provenance import (DocumentSimilarityAttribution,
                         compute_rerank_provenance)
 from RAGHelper import RAGHelper
 
+from server.agents.SubtopicIdentifierAgent import SubtopicIdentifierAgent
+from server.agents.QuestionGeneratorAgent import QuestionGeneratorAgent
+from server.agents.RelevanceCheckerAgent import RelevanceCheckerAgent
+from server.agents.AnswerGeneratorAgent import AnswerGeneratorAgent
+from server.agents.QuizCheckerAgent import QuizCheckerAgent
 
 def combine_results(inputs: dict) -> dict:
     """Combine the results of the user query processing.
@@ -31,7 +36,6 @@ def combine_results(inputs: dict) -> dict:
 
 class RAGHelperCloud(RAGHelper):
     def __init__(self, logger):
-        """Initialize the RAGHelperCloud instance with required models and configurations."""
         super().__init__(logger)
         self.rewrite_chain = None
         self.rewrite_ask_chain = None
@@ -40,6 +44,15 @@ class RAGHelperCloud(RAGHelper):
         self.logger = logger
         self.llm = self.initialize_llm()
         self.embeddings = self.initialize_embeddings()
+
+        # Initialize agents
+        self.agents = {
+            "subtopic_identifier": SubtopicIdentifierAgent(self.llm),
+            "question_generator": QuestionGeneratorAgent(self.llm),
+            "relevance_checker": RelevanceCheckerAgent(self.llm),
+            "answer_generator": AnswerGeneratorAgent(self.llm),
+            "quiz_checker": QuizCheckerAgent(self.llm)
+        }
 
         # Load the data
         self.load_data()
@@ -313,3 +326,18 @@ class RAGHelperCloud(RAGHelper):
         elif 'answer' in response:
             response = response["answer"]
         return response
+
+    def generate_quiz(self, user_query: str) -> dict:
+        subtopics = self.agents["subtopic_identifier"].identify_subtopics(user_query)
+        questions = self.agents["question_generator"].generate_questions(subtopics)
+        relevant_questions = self.agents["relevance_checker"].check_relevance(questions, user_query)
+        return {"questions": relevant_questions}
+
+    def generate_answers(self, questions: list, history: list) -> dict:
+        validated_docs = self.retrieve_documents(questions)
+        answers = self.agents["answer_generator"].generate(questions, validated_docs, history)
+        return answers
+
+    def check_answers(self, user_answers: list, generated_answers: list) -> dict:
+        feedback = self.agents["quiz_checker"].check_answers(user_answers, generated_answers)
+        return feedback
