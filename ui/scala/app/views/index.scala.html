@@ -236,7 +236,7 @@
         type: "POST",
         url: "@controllers.routes.HomeController.generateQuiz()",
         data: JSON.stringify({
-            prompt: query,
+            query: query,
             history: chathistory || [],
             documents: documents || []
         }),
