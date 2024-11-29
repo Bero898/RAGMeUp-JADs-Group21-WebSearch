@@ -124,7 +124,7 @@ def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
         BadRequest(Json.obj("error" -> e.getMessage))
     }
 }
-}
+
 
 def submitAnswers() = Action.async { implicit request: Request[AnyContent] =>
   val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
