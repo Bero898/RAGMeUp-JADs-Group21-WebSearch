@@ -231,17 +231,19 @@
     $(dialogue).show();
 
     if (query.toLowerCase().startsWith("generate a quiz")) {
+    console.log("Sending quiz request"); // Debug log
     $.ajax({
         type: "POST",
         url: "@controllers.routes.HomeController.generateQuiz()",
-        data: JSON.stringify({ 
-            query: query,
+        data: JSON.stringify({
+            prompt: query,
             history: chathistory || [],
-            docs: documents || []
+            documents: documents || []
         }),
         contentType: "application/json; charset=utf-8",
         dataType: "json",
         success: function(data) {
+        console.log("Received response:", data); // Debug log
             if (data.error) {
                 handleError(data.error);
                 return;
@@ -261,9 +263,8 @@
             $("#inputbar").show();
         },
         error: function(xhr, status, error) {
+            console.log("Error:", xhr.responseText); // Debug log
             handleError("Failed to generate quiz: " + error);
-            $("#loader").hide();
-            $("#inputbar").show();
         }
     });
 } else if (quizMode) {

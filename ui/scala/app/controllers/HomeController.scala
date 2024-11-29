@@ -109,20 +109,29 @@ class HomeController @Inject()(
       }
   }
 
+// In HomeController.scala
 def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
-  val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
-  val query = (json \ "query").as[String]
+  println("Received quiz generation request") // Debug log
   
-  ws.url(s"${config.get[String]("server_url")}/generate_quiz")
-    .withRequestTimeout(5.minutes)
-    .post(Json.obj("query" -> query))
-    .map { response => 
-      Ok(response.json)
-    }
-    .recover {
-      case e: Exception =>
-        BadRequest(Json.obj("error" -> e.getMessage))
-    }
+  request.body.asJson.map { json =>
+    println(s"Request body: $json") // Debug log
+    
+    ws.url(s"${config.get[String]("server_url")}/generate_quiz")
+      .withRequestTimeout(5.minutes)
+      .post(json) // Pass through the entire JSON
+      .map { response => 
+        println(s"Response: ${response.body}") // Debug log
+        Ok(response.json)
+      }
+      .recover {
+        case e: Exception =>
+          println(s"Error: ${e.getMessage}") // Debug log
+          BadRequest(Json.obj("error" -> e.getMessage))
+      }
+  }.getOrElse {
+    println("No JSON body found") // Debug log
+    Future.successful(BadRequest(Json.obj("error" -> "Expected JSON body")))
+  }
 }
 
 
