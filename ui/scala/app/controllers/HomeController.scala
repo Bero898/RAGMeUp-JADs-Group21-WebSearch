@@ -12,6 +12,7 @@ import play.api.libs.ws._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext
 import scala.language.postfixOps
+import scala.concurrent.Future
 
 @Singleton
 class HomeController @Inject()(
