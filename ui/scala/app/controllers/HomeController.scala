@@ -116,7 +116,17 @@ def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
   ws.url(s"${config.get[String]("server_url")}/generate_quiz")
     .withRequestTimeout(5.minutes)
     .post(Json.obj("query" -> query))
-    .map(response => Ok(response.json))
+    .map { response => 
+      if (response.status == 200) {
+        Ok(response.json)
+      } else {
+        BadRequest(Json.obj("error" -> "Failed to generate quiz"))
+      }
+    }
+    .recover {
+      case e: Exception =>
+        InternalServerError(Json.obj("error" -> e.getMessage))
+    }
 }
 
 def submitAnswers() = Action.async { implicit request: Request[AnyContent] =>
