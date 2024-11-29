@@ -213,55 +213,143 @@
         }
     });
 
+    let quizMode = false;
+    let currentQuiz = null;
+    let quizAnswers = null;
+    let currentAnswers = null;
+
+
     function handleChat() {
-        $('button[type="submit"]', this).prop('disabled', true);
-        $("#mainContainer").hide();
-        var query = $("#query").val();
-        $("#query").val('');
-        $("#inputbar").hide();
+    $('button[type="submit"]', this).prop('disabled', true);
+    $("#mainContainer").hide();
+    var query = $("#query").val();
+    $("#query").val('');
+    $("#inputbar").hide();
 
-        addMessage(query, true);
-        $("#loader").show();
-        $(dialogue).show();
+    addMessage(query, true);
+    $("#loader").show();
+    $(dialogue).show();
 
+    if (query.toLowerCase().startsWith("generate a quiz")) {
         $.ajax({
             type: "POST",
-            url: "@controllers.routes.HomeController.search()",
-            data: JSON.stringify({
-              query: query,
-              history: chathistory,
-              docs: documents
-            }),
+            url: "@controllers.routes.HomeController.generateQuiz()",
+            data: JSON.stringify({ query: query }),
             contentType: "application/json; charset=utf-8",
             dataType: "json",
-            success: function(data){
+            success: function(data) {
                 $("#loader").hide();
-                $("#mainContainer").remove();
-
-                if (data['rewritten']) {
-                  var msg = '<span style="color: #ccc; font-style: italic; font-weight: 300;">Your message has been rewritten to this:</span>\n\n' + data['question'];
-                  addMessage(msg, true);
-                }
-
-                documents = data['documents'];
-                addMessage(data['reply'], false, data);
-                if (documents.length > 0 && data['fetched_new_documents']) {
-                  presentDocuments(documents);
-                }
-                chathistory = data['history'];
-
-                $("#inputbar").show();
-                $("#query").val('');
+                quizMode = true;
+                currentQuiz = data.questions;
+                
+                // Generate answers immediately after getting questions
+                $.ajax({
+                    type: "POST",
+                    url: "@controllers.routes.HomeController.generateAnswers()",
+                    data: JSON.stringify({
+                        questions: currentQuiz,
+                        history: []
+                    }),
+                    contentType: "application/json",
+                    success: function(answerData) {
+                        quizAnswers = answerData;
+                        
+                        // Display quiz questions
+                        let quizMessage = "Here's your quiz:\n\n";
+                        currentQuiz.forEach((q, index) => {
+                            quizMessage += `${index + 1}. ${q}\n`;
+                        });
+                        quizMessage += "\nPlease provide your answers in order, one per message.";
+                        
+                        addMessage(quizMessage, false);
+                        $("#inputbar").show();
+                    },
+                    error: handleError
+                });
             },
-            error: function(errMsg) {
-                $("#loader").hide();
-                $("#inputbar").show();
-                addMessage('Something went wrong, please try again...', false);
-            },
-            timeout: 300000
+            error: handleError
         });
+    } else if (quizMode) {
+        // Handle quiz answer submission
+        userAnswers.push(query);
+        
+        if (userAnswers.length === currentQuiz.length) {
+            // All answers received, check them
+            $.ajax({
+                type: "POST",
+                url: "@controllers.routes.HomeController.submitAnswers()",
+                data: JSON.stringify({
+                    user_answers: userAnswers,
+                    generated_answers: quizAnswers
+                }),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function(data) {
+                    $("#loader").hide();
+                    
+                    // Display feedback
+                    let feedbackMessage = "Quiz Results:\n\n";
+                    data.feedback.forEach((feedback, index) => {
+                        feedbackMessage += `Question ${index + 1}:\n`;
+                        feedbackMessage += `Your answer: ${userAnswers[index]}\n`;
+                        feedbackMessage += `Correct answer: ${quizAnswers[index]}\n`;
+                        feedbackMessage += `Feedback: ${feedback}\n\n`;
+                    });
+                    
+                    addMessage(feedbackMessage, false);
+                    
+                    // Reset quiz mode
+                    quizMode = false;
+                    currentQuiz = null;
+                    quizAnswers = null;
+                    userAnswers = [];
+                    
+                    $("#inputbar").show();
+                },
+                error: handleError
+            });
+        } else {
+            // Still collecting answers
+            $("#loader").hide();
+            addMessage(`Please provide your answer for question ${userAnswers.length + 1}:`, false);
+            $("#inputbar").show();
+        }
+    } else {
+        // Normal chat handling (existing code)
+        // ...
     }
+}
 
+function generateAnswers(questions, history) {
+  $.ajax({
+    url: "@routes.HomeController.generateAnswers()",
+    type: "POST",
+    data: JSON.stringify({
+      questions: questions,
+      history: history
+    }),
+    contentType: "application/json",
+    success: function(data) {
+      currentAnswers = data;
+      displayQuizAnswers();
+    },
+    error: handleError
+  });
+}
+
+function displayQuizAnswers() {
+  let message = "Here are the correct answers:\n\n";
+  currentAnswers.forEach((answer, index) => {
+    message += `Question ${index + 1}: ${answer}\n`;
+  });
+  addMessage(message, false);
+}
+
+function handleError(errMsg) {
+    $("#loader").hide();
+    $("#inputbar").show();
+    addMessage('Something went wrong, please try again...', false);
+  }
     $(document).ready(function() {
         $('#submitBtn').on('click', function() {
             handleChat();

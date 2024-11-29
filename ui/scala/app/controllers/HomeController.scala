@@ -109,6 +109,44 @@ class HomeController @Inject()(
       }
   }
 
+def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
+  val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
+  val query = (json \ "query").as[String]
+  
+  ws.url(s"${config.get[String]("server_url")}/generate_quiz")
+    .withRequestTimeout(5.minutes)
+    .post(Json.obj("query" -> query))
+    .map(response => Ok(response.json))
+}
+
+def submitAnswers() = Action.async { implicit request: Request[AnyContent] =>
+  val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
+  val userAnswers = (json \ "user_answers").as[Seq[String]]
+  val generatedAnswers = (json \ "generated_answers").as[Seq[String]]
+  
+  ws.url(s"${config.get[String]("server_url")}/check_answers")
+    .withRequestTimeout(5.minutes)
+    .post(Json.obj(
+      "user_answers" -> userAnswers,
+      "generated_answers" -> generatedAnswers
+    ))
+    .map(response => Ok(response.json))
+  }
+
+def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
+  val json = request.body.asJson.getOrElse(Json.obj())
+  val questions = (json \ "questions").as[Seq[String]]
+  val history = (json \ "history").as[Seq[JsObject]]
+
+  ws.url(s"${config.get[String]("server_url")}/generate_answers")
+    .withRequestTimeout(5.minutes)
+    .post(Json.obj(
+      "questions" -> questions,
+      "history" -> history
+    ))
+    .map(response => Ok(response.json))
+}
+
   def feedback() = Action { implicit request: Request[AnyContent] =>
     Ok(Json.obj())
   }
