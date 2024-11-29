@@ -112,25 +112,40 @@ class HomeController @Inject()(
 
 // In HomeController.scala
 def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
-  println("Received quiz generation request") // Debug log
+  println("Received quiz generation request") 
   
   request.body.asJson.map { json =>
-    println(s"Request body: $json") // Debug log
+    println(s"Request body: $json") 
     
-    ws.url(s"${config.get[String]("server_url")}/generate_quiz")
+    // Get server URL from config
+    val serverUrl = config.get[String]("server_url").stripSuffix("/")
+    println(s"Connecting to server: $serverUrl")
+    
+    ws.url(s"$serverUrl/generate_quiz")
       .withRequestTimeout(5.minutes)
-      .post(json) // Pass through the entire JSON
+      .withHttpHeaders("Accept" -> "application/json")  // Explicitly request JSON
+      .post(Json.obj(
+        "query" -> (json \ "query").as[String],
+        "history" -> (json \ "history").getOrElse(JsArray()),
+        "documents" -> (json \ "documents").getOrElse(JsArray())
+      ))
       .map { response => 
-        println(s"Response: ${response.body}") // Debug log
-        Ok(response.json)
+        println(s"Response status: ${response.status}")
+        println(s"Response body: ${response.body}")
+        
+        if (response.status == 200) {
+          Ok(response.json)
+        } else {
+          BadRequest(Json.obj("error" -> s"Server returned ${response.status}: ${response.body}"))
+        }
       }
       .recover {
         case e: Exception =>
-          println(s"Error: ${e.getMessage}") // Debug log
-          BadRequest(Json.obj("error" -> e.getMessage))
+          println(s"Error details: ${e.getMessage}")
+          BadRequest(Json.obj("error" -> s"Request failed: ${e.getMessage}"))
       }
   }.getOrElse {
-    println("No JSON body found") // Debug log
+    println("No JSON body found")
     Future.successful(BadRequest(Json.obj("error" -> "Expected JSON body")))
   }
 }
