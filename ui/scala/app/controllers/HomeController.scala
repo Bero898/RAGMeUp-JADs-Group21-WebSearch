@@ -117,16 +117,13 @@ def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
     .withRequestTimeout(5.minutes)
     .post(Json.obj("query" -> query))
     .map { response => 
-      if (response.status == 200) {
-        Ok(response.json)
-      } else {
-        BadRequest(Json.obj("error" -> "Failed to generate quiz"))
-      }
+      Ok(response.json)
     }
     .recover {
       case e: Exception =>
-        InternalServerError(Json.obj("error" -> e.getMessage))
+        BadRequest(Json.obj("error" -> e.getMessage))
     }
+}
 }
 
 def submitAnswers() = Action.async { implicit request: Request[AnyContent] =>

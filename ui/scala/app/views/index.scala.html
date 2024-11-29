@@ -231,45 +231,42 @@
     $(dialogue).show();
 
     if (query.toLowerCase().startsWith("generate a quiz")) {
-        $.ajax({
-            type: "POST",
-            url: "@controllers.routes.HomeController.generateQuiz()",
-            data: JSON.stringify({ query: query }),
-            contentType: "application/json; charset=utf-8",
-            dataType: "json",
-            success: function(data) {
-                $("#loader").hide();
-                quizMode = true;
-                currentQuiz = data.questions;
-                
-                // Generate answers immediately after getting questions
-                $.ajax({
-                    type: "POST",
-                    url: "@controllers.routes.HomeController.generateAnswers()",
-                    data: JSON.stringify({
-                        questions: currentQuiz,
-                        history: []
-                    }),
-                    contentType: "application/json",
-                    success: function(answerData) {
-                        quizAnswers = answerData;
-                        
-                        // Display quiz questions
-                        let quizMessage = "Here's your quiz:\n\n";
-                        currentQuiz.forEach((q, index) => {
-                            quizMessage += `${index + 1}. ${q}\n`;
-                        });
-                        quizMessage += "\nPlease provide your answers in order, one per message.";
-                        
-                        addMessage(quizMessage, false);
-                        $("#inputbar").show();
-                    },
-                    error: handleError
-                });
-            },
-            error: handleError
-        });
-    } else if (quizMode) {
+    $.ajax({
+        type: "POST",
+        url: "@controllers.routes.HomeController.generateQuiz()",
+        data: JSON.stringify({ 
+            query: query,
+            history: chathistory || [],
+            docs: documents || []
+        }),
+        contentType: "application/json; charset=utf-8",
+        dataType: "json",
+        success: function(data) {
+            if (data.error) {
+                handleError(data.error);
+                return;
+            }
+            $("#loader").hide();
+            quizMode = true;
+            currentQuiz = data.questions;
+            quizAnswers = data.answers;
+            
+            let quizMessage = "Here's your quiz:\n\n";
+            currentQuiz.forEach((q, index) => {
+                quizMessage += `${index + 1}. ${q}\n`;
+            });
+            quizMessage += "\nPlease provide your answers in order, one per message.";
+            
+            addMessage(quizMessage, false);
+            $("#inputbar").show();
+        },
+        error: function(xhr, status, error) {
+            handleError("Failed to generate quiz: " + error);
+            $("#loader").hide();
+            $("#inputbar").show();
+        }
+    });
+} else if (quizMode) {
         // Handle quiz answer submission
         userAnswers.push(query);
         
