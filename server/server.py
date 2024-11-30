@@ -216,6 +216,29 @@ def delete_document():
 
     return jsonify({"count": result.delete_count})
 
+@app.route("/generate_quiz", methods=['POST'])
+def generate_quiz():
+    json_data = request.get_json()
+    user_query = json_data.get('query')
+    quiz = raghelper.generate_quiz(user_query)
+    return jsonify(quiz), 200
+
+@app.route("/generate_answers", methods=['POST'])
+def generate_answers():
+    json_data = request.get_json()
+    questions = json_data.get('questions')
+    history = json_data.get('history', [])
+    answers = raghelper.generate_answers(questions, history)
+    return jsonify(answers), 200
+
+@app.route("/check_answers", methods=['POST'])
+def check_answers():
+    json_data = request.get_json()
+    user_answers = json_data.get('user_answers')
+    generated_answers = json_data.get('generated_answers')
+    feedback = raghelper.check_answers(user_answers, generated_answers)
+    return jsonify(feedback), 200
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0")

@@ -12,6 +12,7 @@ import play.api.libs.ws._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext
 import scala.language.postfixOps
+import scala.concurrent.Future
 
 @Singleton
 class HomeController @Inject()(
@@ -108,6 +109,75 @@ class HomeController @Inject()(
           .flashing("success" -> s"File ${file} has been deleted (${deleteCount} chunks in total).")
       }
   }
+
+// In HomeController.scala
+def generateQuiz() = Action.async { implicit request: Request[AnyContent] =>
+  println("Received quiz generation request") 
+  
+  request.body.asJson.map { json =>
+    println(s"Request body: $json") 
+    
+    // Get server URL from config
+    val serverUrl = config.get[String]("server_url").stripSuffix("/")
+    println(s"Connecting to server: $serverUrl")
+    
+    ws.url(s"$serverUrl/generate_quiz")
+      .withRequestTimeout(5.minutes)
+      .withHttpHeaders("Accept" -> "application/json")  // Explicitly request JSON
+      .post(Json.obj(
+        "query" -> (json \ "query").as[String],
+        "history" -> (json \ "history").getOrElse(JsArray()),
+        "documents" -> (json \ "documents").getOrElse(JsArray())
+      ))
+      .map { response => 
+        println(s"Response status: ${response.status}")
+        println(s"Response body: ${response.body}")
+        
+        if (response.status == 200) {
+          Ok(response.json)
+        } else {
+          BadRequest(Json.obj("error" -> s"Server returned ${response.status}: ${response.body}"))
+        }
+      }
+      .recover {
+        case e: Exception =>
+          println(s"Error details: ${e.getMessage}")
+          BadRequest(Json.obj("error" -> s"Request failed: ${e.getMessage}"))
+      }
+  }.getOrElse {
+    println("No JSON body found")
+    Future.successful(BadRequest(Json.obj("error" -> "Expected JSON body")))
+  }
+}
+
+
+def submitAnswers() = Action.async { implicit request: Request[AnyContent] =>
+  val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
+  val userAnswers = (json \ "user_answers").as[Seq[String]]
+  val generatedAnswers = (json \ "generated_answers").as[Seq[String]]
+  
+  ws.url(s"${config.get[String]("server_url")}/check_answers")
+    .withRequestTimeout(5.minutes)
+    .post(Json.obj(
+      "user_answers" -> userAnswers,
+      "generated_answers" -> generatedAnswers
+    ))
+    .map(response => Ok(response.json))
+  }
+
+def generateAnswers() = Action.async { implicit request: Request[AnyContent] =>
+  val json = request.body.asJson.getOrElse(Json.obj())
+  val questions = (json \ "questions").as[Seq[String]]
+  val history = (json \ "history").as[Seq[JsObject]]
+
+  ws.url(s"${config.get[String]("server_url")}/generate_answers")
+    .withRequestTimeout(5.minutes)
+    .post(Json.obj(
+      "questions" -> questions,
+      "history" -> history
+    ))
+    .map(response => Ok(response.json))
+}
 
   def feedback() = Action { implicit request: Request[AnyContent] =>
     Ok(Json.obj())
