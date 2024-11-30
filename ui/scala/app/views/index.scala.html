@@ -122,6 +122,12 @@
 
     function presentDocuments(documents) {
       // Initialize the container for document list
+      var sourceIcon = doc.metadata?.is_web ? 
+            '<i class="fas fa-globe"></i>' : 
+            '<i class="fas fa-database"></i>';
+            
+      var linktext = sourceIcon + ' ' + doc['s'];
+      
       var doclist = $('<div class="documentdiv">');
 
       for (let doc of documents) {
