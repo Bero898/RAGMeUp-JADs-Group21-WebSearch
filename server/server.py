@@ -27,7 +27,7 @@ def load_bashrc():
 
 # Initialize Flask application
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, filename="./log.txt")
 logger = logging.getLogger(__name__)
 
 # Disable parallelism in tokenizers to avoid warnings
