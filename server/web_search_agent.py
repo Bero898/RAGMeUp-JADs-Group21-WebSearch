@@ -5,7 +5,12 @@ from langchain_core.documents import Document
 
 class WebSearchAgent:
     def __init__(self, api_key: str):
+        print("Initializing WebSearchAgent with API key:", api_key)
         self.client = TavilyClient(api_key=api_key)
+        if self.client.api_key == api_key:
+            print("API key is being used correctly.")
+        else:
+            print("API key is not being used correctly.")
         
     def search(self, query: str, max_results: int = 3) -> List[Document]:
         search_results = self.client.search(
