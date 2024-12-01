@@ -1,5 +1,5 @@
 # New file: result_combiner_agent.py
-from typing import List
+from typing import List, Dict
 from langchain_core.documents import Document
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
