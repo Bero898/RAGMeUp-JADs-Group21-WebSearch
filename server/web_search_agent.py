@@ -1,5 +1,5 @@
 from typing import List, Dict
-from duckduckgo_search import ddg
+from duckduckgo_search import DDGS
 from langchain_core.documents import Document
 import logging
 
@@ -10,7 +10,7 @@ class WebSearchAgent:
         
     def search(self, query: str, max_results: int = 3) -> List[Document]:
         try:
-            search_results = ddg(query, max_results=max_results)
+            search_results = DDGS(query, max_results=max_results)
             
             # Convert to Document format
             documents = []
