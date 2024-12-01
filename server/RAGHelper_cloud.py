@@ -35,7 +35,7 @@ class RAGHelperCloud(RAGHelper):
     def __init__(self, logger):
         """Initialize the RAGHelperCloud instance with required models and configurations."""
         super().__init__(logger)
-        self.web_search = WebSearchAgent(os.getenv("TAVILY_API_KEY"))
+        self.web_search = WebSearchAgent()
         self.result_combiner = ResultCombinerAgent(self.llm)
         self.rewrite_chain = None
         self.rewrite_ask_chain = None
