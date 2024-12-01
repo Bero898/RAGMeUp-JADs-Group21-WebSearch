@@ -29,6 +29,8 @@ def load_bashrc():
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, filename="./log.txt")
 logger = logging.getLogger(__name__)
+fh = logging.FileHandler(r'./log.txt')
+logger.addHandler(fh)
 
 # Disable parallelism in tokenizers to avoid warnings
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
