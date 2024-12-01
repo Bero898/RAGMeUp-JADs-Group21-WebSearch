@@ -1,36 +1,33 @@
-# New file: web_search_agent.py
 from typing import List, Dict
-from tavily import TavilyClient
+from duckduckgo_search import ddg
 from langchain_core.documents import Document
+import logging
 
 class WebSearchAgent:
-    def __init__(self, api_key: str):
-        print("Initializing WebSearchAgent with API key:", api_key)
-        self.client = TavilyClient(api_key=api_key)
-        if self.client.api_key == api_key:
-            print("API key is being used correctly.")
-        else:
-            print("API key is not being used correctly.")
+    def __init__(self, max_retries: int = 3):
+        self.max_retries = max_retries
+        self.logger = logging.getLogger(__name__)
         
     def search(self, query: str, max_results: int = 3) -> List[Document]:
-        search_results = self.client.search(
-            query=query,
-            search_depth="advanced",
-            max_results=max_results
-        )
-        
-        # Convert to Document format
-        documents = []
-        for result in search_results:
-            doc = Document(
-                page_content=result['content'],
-                metadata={
-                    'source': result['url'],
-                    'title': result['title'],
-                    'score': result['score'],
-                    'is_web': True
-                }
-            )
-            documents.append(doc)
-        
-        return documents
+        try:
+            search_results = ddg(query, max_results=max_results)
+            
+            # Convert to Document format
+            documents = []
+            for result in search_results:
+                doc = Document(
+                    page_content=result['body'],
+                    metadata={
+                        'source': result['link'],
+                        'title': result['title'],
+                        'is_web': True
+                    }
+                )
+                documents.append(doc)
+            
+            self.logger.info(f"Found {len(documents)} web results")
+            return documents
+            
+        except Exception as e:
+            self.logger.error(f"DuckDuckGo search failed: {e}")
+            return []
