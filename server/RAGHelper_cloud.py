@@ -12,6 +12,8 @@ from provenance import (DocumentSimilarityAttribution,
                         compute_llm_provenance_cloud,
                         compute_rerank_provenance)
 from RAGHelper import RAGHelper
+from web_search_agent import WebSearchAgent
+from result_combiner_agent import ResultCombinerAgent
 
 
 def combine_results(inputs: dict) -> dict:
@@ -111,20 +113,79 @@ class RAGHelperCloud(RAGHelper):
                 "question": RunnablePassthrough()} | rewrite_ask_llm_chain
 
     def handle_user_interaction(self, user_query: str, history: list) -> tuple:
-        # Get database results
-        db_results = self.get_database_results(user_query)
-        
-        # Get web search results
-        web_results = self.web_search.search(user_query)
-        
-        # Combine results
-        combined_results = self.result_combiner.combine_results(
-            user_query, db_results, web_results
-        )
-        
-        # Format for frontend
-        thread = self.create_interaction_thread(history, True)
-        return (thread, combined_results)
+        """Handle user interaction by processing their query through both web and database sources."""
+        try:
+            fetch_new_documents = self.should_fetch_new_documents(user_query, history)
+            thread = self.create_interaction_thread(history, fetch_new_documents)
+
+            # Handle query rewriting if enabled
+            user_query = self.handle_rewrite(user_query)
+            if os.getenv("use_re2") == "True":
+                user_query = f'{user_query}\n{os.getenv("re2_prompt")}{user_query}'
+
+            # Get web results
+            web_results = []
+            if os.getenv("use_web_search") == "True":
+                self.logger.info("Fetching web results...")
+                web_results = self.web_search.search(user_query)
+                self.logger.info(f"Found {len(web_results)} web results")
+
+            # Get database results and setup chains
+            prompt = ChatPromptTemplate.from_messages(thread)
+            llm_chain = prompt | self.llm | StrOutputParser()
+
+            if fetch_new_documents:
+                context_retriever = self.rerank_retriever if self.rerank else self.ensemble_retriever
+                db_results = context_retriever.invoke(user_query)
+                self.logger.info(f"Found {len(db_results)} database results")
+
+                # Use ResultCombinerAgent to merge results
+                combined_response = self.result_combiner.combine_results(
+                    query=user_query,
+                    db_docs=db_results,
+                    web_docs=web_results
+                )
+
+                # Format for RAG chain
+                retriever_chain = {
+                    "docs": lambda _: combined_response["documents"],
+                    "context": lambda _: RAGHelper.format_documents(combined_response["documents"]),
+                    "question": RunnablePassthrough()
+                }
+
+                rag_chain = (
+                    retriever_chain
+                    | RunnablePassthrough.assign(
+                        answer=lambda x: llm_chain.invoke({
+                            "docs": x["docs"],
+                            "context": x["context"],
+                            "question": x["question"]
+                        }))
+                    | combine_results
+                )
+            else:
+                retriever_chain = {"question": RunnablePassthrough()}
+                rag_chain = (
+                    retriever_chain
+                    | RunnablePassthrough.assign(
+                        answer=lambda x: llm_chain.invoke({
+                            "question": x["question"]
+                        }))
+                    | combine_results
+                )
+
+            # Invoke RAG pipeline
+            reply = rag_chain.invoke(user_query)
+
+            # Track provenance if enabled
+            if fetch_new_documents and os.getenv("provenance_method") in ['rerank', 'attention', 'similarity', 'llm']:
+                self.track_provenance(reply, user_query)
+
+            return (thread, reply)
+
+        except Exception as e:
+            self.logger.error(f"Error in handle_user_interaction: {str(e)}")
+            return (thread, {"answer": "An error occurred while processing your request.", "error": str(e)})
 
 
     def create_rewrite_chain(self):
@@ -152,66 +213,6 @@ class RAGHelperCloud(RAGHelper):
                 return self.extract_response_content(self.rewrite_chain.invoke(user_query))
         return user_query
 
-    def handle_user_interaction(self, user_query: str, history: list) -> tuple:
-        """Handle user interaction by processing their query and maintaining conversation history.
-
-        Args:
-            user_query (str): The user's query.
-            history (list): The history of previous interactions.
-
-        Returns:
-            tuple: A tuple containing the conversation thread and the reply.
-        """
-        fetch_new_documents = self.should_fetch_new_documents(user_query, history)
-
-        thread = self.create_interaction_thread(history, fetch_new_documents)
-        # Create prompt from prompt template
-        prompt = ChatPromptTemplate.from_messages(thread)
-
-        # Create llm chain
-        llm_chain = prompt | self.llm
-
-        if fetch_new_documents:
-            context_retriever = self.ensemble_retriever if self.rerank else self.rerank_retriever
-            retriever_chain = {
-                "docs": context_retriever,
-                "context": context_retriever | RAGHelper.format_documents,
-                "question": RunnablePassthrough()
-            }
-            llm_chain = prompt | self.llm | StrOutputParser()
-            rag_chain = (
-                retriever_chain
-                | RunnablePassthrough.assign(
-                    answer=lambda x: llm_chain.invoke(
-                        {"docs": x["docs"], "context": x["context"], "question": x["question"]}
-                    ))
-                | combine_results
-            )
-        else:
-            retriever_chain = {"question": RunnablePassthrough()}
-            llm_chain = prompt | self.llm | StrOutputParser()
-            rag_chain = (
-                retriever_chain
-                | RunnablePassthrough.assign(
-                    answer=lambda x: llm_chain.invoke(
-                        {"question": x["question"]}
-                    ))
-                | combine_results
-            )
-
-        user_query = self.handle_rewrite(user_query)
-        # Check if we need to apply Re2 to mention the question twice
-        if os.getenv("use_re2") == "True":
-            user_query = f'{user_query}\n{os.getenv("re2_prompt")}{user_query}'
-
-        # Invoke RAG pipeline
-        reply = rag_chain.invoke(user_query)
-
-        # Track provenance if needed
-        if fetch_new_documents and os.getenv("provenance_method") in ['rerank', 'attention', 'similarity', 'llm']:
-            self.track_provenance(reply, user_query)
-
-        return (thread, reply)
 
     def should_fetch_new_documents(self, user_query: str, history: list) -> bool:
         """Determine if new documents should be fetched based on user query and history.
