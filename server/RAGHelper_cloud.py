@@ -33,6 +33,8 @@ class RAGHelperCloud(RAGHelper):
     def __init__(self, logger):
         """Initialize the RAGHelperCloud instance with required models and configurations."""
         super().__init__(logger)
+        self.web_search = WebSearchAgent(os.getenv("TAVILY_API_KEY"))
+        self.result_combiner = ResultCombinerAgent(self.llm)
         self.rewrite_chain = None
         self.rewrite_ask_chain = None
         self.attributor = None
@@ -107,6 +109,23 @@ class RAGHelperCloud(RAGHelper):
         context_retriever = self.rerank_retriever if self.rerank else self.ensemble_retriever
         return {"context": context_retriever | RAGHelper.format_documents,
                 "question": RunnablePassthrough()} | rewrite_ask_llm_chain
+
+    def handle_user_interaction(self, user_query: str, history: list) -> tuple:
+        # Get database results
+        db_results = self.get_database_results(user_query)
+        
+        # Get web search results
+        web_results = self.web_search.search(user_query)
+        
+        # Combine results
+        combined_results = self.result_combiner.combine_results(
+            user_query, db_results, web_results
+        )
+        
+        # Format for frontend
+        thread = self.create_interaction_thread(history, True)
+        return (thread, combined_results)
+
 
     def create_rewrite_chain(self):
         """Create the chain to perform the actual rewrite."""
@@ -242,6 +261,7 @@ class RAGHelperCloud(RAGHelper):
             str: The combined RAG chain.
         """
         return retriever_chain | llm_chain
+    
 
     def track_provenance(self, reply: str, user_query: str) -> None:
         """Track the provenance of the response if applicable.
@@ -313,3 +333,4 @@ class RAGHelperCloud(RAGHelper):
         elif 'answer' in response:
             response = response["answer"]
         return response
+    

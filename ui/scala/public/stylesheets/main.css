@@ -218,3 +218,10 @@ $speed: 1.5s;
 .documentshown {
     background-color: #dee2e6 !important;
 }
+
+.web-source {
+    color: #4285f4;
+}
+.db-source {
+    color: #34a853;
+}
