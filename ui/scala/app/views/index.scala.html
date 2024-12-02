@@ -122,60 +122,58 @@
 
     function presentDocuments(documents) {
       // Initialize the container for document list
-      var sourceIcon = doc.metadata?.is_web ? 
-            '<i class="fas fa-globe"></i>' : 
-            '<i class="fas fa-database"></i>';
-            
-      var linktext = sourceIcon + ' ' + doc['s'];
-      
       var doclist = $('<div class="documentdiv">');
 
       for (let doc of documents) {
-          var linktext = doc['s'];
-          const parts = linktext.split(/[\\/]/);
-          linktext = parts.pop();
-          if ('provenance' in doc) {
-              linktext += ' (provenance: ' + String(Math.round(doc['provenance'] * 100000) / 100000) + ')';
-          }
-          var content = unicodeToChar(doc['c']).substring(0, 100);
-          if (doc['c'].length > 100) {
-              content += ' ...';
-          }
+        var sourceIcon = doc.metadata?.is_web ? 
+          '<i class="fas fa-globe"></i>' : 
+          '<i class="fas fa-database"></i>';
+          
+        var linktext = sourceIcon + ' ' + doc['s'];
+        
+        const parts = linktext.split(/[\\/]/);
+        linktext = parts.pop();
+        if ('provenance' in doc) {
+          linktext += ' (provenance: ' + String(Math.round(doc['provenance'] * 100000) / 100000) + ')';
+        }
+        var content = unicodeToChar(doc['c']).substring(0, 100);
+        if (doc['c'].length > 100) {
+          content += ' ...';
+        }
 
-          var doccontentholder = $('<p class="doccontenttext text-muted mb-0" style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; padding: 0px 10px 0px 10px;">').html(content);
+        var doccontentholder = $('<p class="doccontenttext text-muted mb-0" style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; padding: 0px 10px 0px 10px;">').html(content);
 
-          // Create the document link container
-          var doclink = $('<div class="d-flex align-items-center gap-3 bg-light px-3 py-2 justify-content-between" style="min-height: 72px; border-radius:20px; margin: 4px !important; box-shadow: 0 1px 1px rgba(0,0,0,0.3);">').append(
-              $('<div class="d-flex align-items-center gap-3">').append(
-                  $('<div class="d-flex flex-column justify-content-center">').append(
-                      $('<p class="text-dark mb-1" style="font-size: 1rem; font-weight: 500; line-height: 1.5;">').html(linktext)
-                  ).append(doccontentholder)
-              )
-          ).append(
-              $('<div class="flex-shrink-0">').html(
-                  '<div data-arrow="right" class="text-dark d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">' +
-                  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256">' +
-                      '<path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path>' +
-                  '</svg></div>' +
-                  '<div data-arrow="left" class="text-dark d-flex align-items-center justify-content-center hidden" style="width: 24px; height: 24px;">' +
-                  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256">' +
-                      '<path d="M74.34,133.66l80,80a8,8,0,0,0,11.32-11.32L91.31,128l74.35-74.34a8,8,0,0,0-11.32-11.32l-80,80A8,8,0,0,0,74.34,133.66Z"></path>' +
-                  '</svg></div>'
+        // Create the document link container
+        var doclink = $('<div class="d-flex align-items-center gap-3 bg-light px-3 py-2 justify-content-between" style="min-height: 72px; border-radius:20px; margin: 4px !important; box-shadow: 0 1px 1px rgba(0,0,0,0.3);">').append(
+          $('<div class="d-flex align-items-center gap-3">').append(
+            $('<div class="d-flex flex-column justify-content-center">').append(
+              $('<p class="text-dark mb-1" style="font-size: 1rem; font-weight: 500; line-height: 1.5;">').html(linktext)
+            ).append(doccontentholder)
+          )
+        ).append(
+          $('<div class="flex-shrink-0">').html(
+            '<div data-arrow="right" class="text-dark d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256">' +
+              '<path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path>' +
+            '</svg></div>' +
+            '<div data-arrow="left" class="text-dark d-flex align-items-center justify-content-center hidden" style="width: 24px; height: 24px;">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256">' +
+              '<path d="M74.34,133.66l80,80a8,8,0,0,0,11.32-11.32L91.31,128l74.35-74.34a8,8,0,0,0-11.32-11.32l-80,80A8,8,0,0,0,74.34,133.66Z"></path>' +
+            '</svg></div>'
+          )
+        );
 
-              )
-          );
+        // Create and configure the clickable container
+        var doccontainer = $('<p  data-content="' + unicodeToChar(doc['c']) + '" class="documentcontainerclass">').append(doclink).css('cursor', 'pointer');
 
-          // Create and configure the clickable container
-          var doccontainer = $('<p  data-content="' + unicodeToChar(doc['c']) + '" class="documentcontainerclass">').append(doclink).css('cursor', 'pointer');
-
-          // Append the created doccontainer to the document list
-          doclist.append(doccontainer);
+        // Append the created doccontainer to the document list
+        doclist.append(doccontainer);
       }
 
       // Create and append the message container
       var message = $('<div>')
-          .append('<h5>Documents used in generating this answer</h5>')
-          .append(doclist);
+        .append('<h5>Documents used in generating this answer</h5>')
+        .append(doclist);
 
       var dialogue = $("#dialogue");
       var row = $('<div>').addClass('row');
@@ -189,34 +187,34 @@
     }
 
     $(document).on('click', '.documentcontainerclass', function() {
-        let newContent = $(this).data('content');
-        // Check if newContent is an object, and convert it to a string if so
-        if (typeof newContent === 'object') {
-            newContent = JSON.stringify(newContent);
+      let newContent = $(this).data('content');
+      // Check if newContent is an object, and convert it to a string if so
+      if (typeof newContent === 'object') {
+        newContent = JSON.stringify(newContent);
+      }
+
+      let leftArrowDiv = $(this).find('div[data-arrow="left"]');
+      let rightArrowDiv = $(this).find('div[data-arrow="right"]');
+
+      if (leftArrowDiv.is(':visible')) {
+        var newNewContent = '';
+        if (newContent && newContent.length > 0) {
+          newNewContent = newContent.substring(0, 100);
+        }
+        if (newContent.length > 100) {
+          newNewContent += ' ...';
         }
 
-        let leftArrowDiv = $(this).find('div[data-arrow="left"]');
-        let rightArrowDiv = $(this).find('div[data-arrow="right"]');
-
-        if (leftArrowDiv.is(':visible')) {
-            var newNewContent = '';
-            if (newContent && newContent.length > 0) {
-              newNewContent = newContent.substring(0, 100);
-            }
-            if (newContent.length > 100) {
-                newNewContent += ' ...';
-            }
-
-            $(leftArrowDiv).toggleClass('hidden');
-            $(rightArrowDiv).toggleClass('hidden');
-            $(this).find(">:first-child").toggleClass('documentshown');
-            $(this).find('p.doccontenttext').html(newNewContent);
-        } else if (rightArrowDiv.is(':visible')) {
-            $(rightArrowDiv).toggleClass('hidden');
-            $(leftArrowDiv).toggleClass('hidden');
-            $(this).find(">:first-child").toggleClass('documentshown');
-            $(this).find('p.doccontenttext').html(newContent);
-        }
+        $(leftArrowDiv).toggleClass('hidden');
+        $(rightArrowDiv).toggleClass('hidden');
+        $(this).find(">:first-child").toggleClass('documentshown');
+        $(this).find('p.doccontenttext').html(newNewContent);
+      } else if (rightArrowDiv.is(':visible')) {
+        $(rightArrowDiv).toggleClass('hidden');
+        $(leftArrowDiv).toggleClass('hidden');
+        $(this).find(">:first-child").toggleClass('documentshown');
+        $(this).find('p.doccontenttext').html(newContent);
+      }
     });
 
     function handleChat() {
