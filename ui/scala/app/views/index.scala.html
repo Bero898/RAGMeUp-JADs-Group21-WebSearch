@@ -327,14 +327,14 @@
             $("#mainContainer").remove();
 
                 if (data['rewritten']) {
-                  var msg = '<span style="color: #ccc; font-style: italic; font-weight: 300;">Your message has been rewritten to this:</span>\n\n' + data['question'];
-                  addMessage(msg, true);
+                    var msg = '<span style="color: #ccc; font-style: italic; font-weight: 300;">Your message has been rewritten to this:</span>\n\n' + data['question'];
+                    addMessage(msg, true);
                 }
 
                 documents = data['documents'];
                 addMessage(data['reply'], false, data);
                 if (documents.length > 0 && data['fetched_new_documents']) {
-                  presentDocuments(documents);
+                    presentDocuments(documents);
                 }
                 chathistory = data['history'];
 
