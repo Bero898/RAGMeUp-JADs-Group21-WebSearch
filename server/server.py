@@ -81,60 +81,65 @@ def chat():
     Returns:
         JSON response containing the assistant's reply, history, documents, and other metadata.
     """
-    json_data = request.get_json()
-    prompt = json_data.get('prompt')
-    history = json_data.get('history', [])
-    original_docs = json_data.get('docs', [])
-    docs = original_docs
+    try:
+        json_data = request.get_json()
+        prompt = json_data.get('prompt')
+        history = json_data.get('history', [])
+        original_docs = json_data.get('docs', [])
+        docs = original_docs
 
-    # Get the LLM response
-    (new_history, response) = raghelper.handle_user_interaction(prompt, history)
-    if not docs or 'docs' in response:
-        docs = response['docs']
+        # Get the LLM response
+        (new_history, response) = raghelper.handle_user_interaction(prompt, history)
+        if not docs or 'docs' in response:
+            docs = response['docs']
 
-    # Break up the response for local LLMs
-    if isinstance(raghelper, RAGHelperLocal):
-        end_string = os.getenv("llm_assistant_token")
-        reply = response['text'][response['text'].rindex(end_string) + len(end_string):]
+        # Break up the response for local LLMs
+        if isinstance(raghelper, RAGHelperLocal):
+            end_string = os.getenv("llm_assistant_token")
+            reply = response['text'][response['text'].rindex(end_string) + len(end_string):]
 
-        # Get updated history
-        new_history = [{"role": msg["role"], "content": msg["content"].format_map(response)} for msg in new_history]
-        new_history.append({"role": "assistant", "content": reply})
-    else:
-        # Populate history for other LLMs
-        new_history = [{"role": msg[0], "content": msg[1].format_map(response)} for msg in new_history]
-        new_history.append({"role": "assistant", "content": response['answer']})
-        reply = response['answer']
+            # Get updated history
+            new_history = [{"role": msg["role"], "content": msg["content"].format_map(response)} for msg in new_history]
+            new_history.append({"role": "assistant", "content": reply})
+        else:
+            # Populate history for other LLMs
+            new_history = [{"role": msg[0], "content": msg[1].format_map(response)} for msg in new_history]
+            new_history.append({"role": "assistant", "content": response['answer']})
+            reply = response['answer']
 
-    # Format documents
-    fetched_new_documents = False
-    if not original_docs or 'docs' in response:
-        fetched_new_documents = True
-        new_docs = [{
-            's': doc.metadata['source'],
-            'c': doc.page_content,
-            **({'pk': doc.metadata['pk']} if 'pk' in doc.metadata else {}),
-            **({'provenance': float(doc.metadata['provenance'])} if 'provenance' in doc.metadata and doc.metadata['provenance'] is not None else {})
-        } for doc in docs if 'source' in doc.metadata]
-    else:
-        new_docs = docs
+        # Format documents
+        fetched_new_documents = False
+        if not original_docs or 'docs' in response:
+            fetched_new_documents = True
+            new_docs = [{
+                's': doc.metadata['source'],
+                'c': doc.page_content,
+                **({'pk': doc.metadata['pk']} if 'pk' in doc.metadata else {}),
+                **({'provenance': float(doc.metadata['provenance'])} if 'provenance' in doc.metadata and doc.metadata['provenance'] is not None else {})
+            } for doc in docs if 'source' in doc.metadata]
+        else:
+            new_docs = docs
 
-    # Build the response dictionary
-    response_dict = {
-        "reply": reply,
-        "history": new_history,
-        "documents": new_docs,
-        "rewritten": False,
-        "question": prompt,
-        "fetched_new_documents": fetched_new_documents
-    }
+        # Build the response dictionary
+        response_dict = {
+            "reply": reply,
+            "history": new_history,
+            "documents": new_docs,
+            "rewritten": False,
+            "question": prompt,
+            "fetched_new_documents": fetched_new_documents
+        }
 
-    # Check for rewritten question
-    if os.getenv("use_rewrite_loop") == "True" and prompt != response['question']:
-        response_dict["rewritten"] = True
-        response_dict["question"] = response['question']
+        # Check for rewritten question
+        if os.getenv("use_rewrite_loop") == "True" and prompt != response['question']:
+            response_dict["rewritten"] = True
+            response_dict["question"] = response['question']
 
-    return jsonify(response_dict), 200
+        return jsonify(response_dict), 200
+
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/get_documents", methods=['GET'])

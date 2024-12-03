@@ -34,24 +34,36 @@ class HomeController @Inject()(
       })
   }
 
-  def search() = Action.async { implicit request: Request[AnyContent] =>
-    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
-    val query = (json \ "query").as[String]
-    val history = (json \ "history").as[Seq[JsObject]]
-    val docs = (json \ "docs").as[Seq[JsObject]]
+def search() = Action.async { implicit request: Request[AnyContent] =>
+  val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
+  val query = (json \ "query").as[String]
+  val history = (json \ "history").as[Seq[JsObject]]
+  val docs = (json \ "docs").as[Seq[JsObject]]
 
-    ws
-      .url(s"${config.get[String]("server_url")}/chat")
-      .withRequestTimeout(5 minutes)
-      .post(Json.obj(
-        "prompt" -> query,
-        "history" -> history,
-        "docs" -> docs
-      ))
-      .map(response =>
-          Ok(response.json)
-      )
-  }
+  ws
+    .url(s"${config.get[String]("server_url")}/chat")
+    .withRequestTimeout(5 minutes)
+    .post(Json.obj(
+      "prompt" -> query,
+      "history" -> history,
+      "docs" -> docs
+    ))
+    .map { response =>
+      if (response.status == 200) {
+        Ok(response.json)
+      } else {
+        val errorMsg = s"Error: ${response.status} - ${response.body}"
+        Logger.error(errorMsg)
+        InternalServerError(errorMsg)
+      }
+    }
+    .recover {
+      case e: Exception =>
+        val errorMsg = s"Exception: ${e.getMessage}"
+        Logger.error(errorMsg)
+        InternalServerError(errorMsg)
+    }
+}
 
   def download(file: String) = Action.async { implicit request: Request[AnyContent] =>
     ws.url(s"${config.get[String]("server_url")}/get_document")
