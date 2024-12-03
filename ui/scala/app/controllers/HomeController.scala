@@ -49,7 +49,7 @@ class HomeController @Inject()(
             Ok(response.json)
           } else {
             val errorMsg = s"Server returned status ${response.status}: ${response.body}"
-            Logger.error(errorMsg)
+            print(errorMsg)
             InternalServerError(errorMsg)
           }
         }
