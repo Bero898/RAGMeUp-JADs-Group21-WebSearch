@@ -9,6 +9,8 @@ class WebSearchAgent:
         self.logger = logging.getLogger(__name__)
         
     def search(self, query: str, max_results: int = 3) -> List[Document]:
+        self.logger.info(f"Searching for query: {query}")
+
         try:
             search_results = DDGS(query, max_results=max_results)
             
