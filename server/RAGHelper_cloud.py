@@ -1,8 +1,9 @@
 import os
 import re
-
+from langchain_community.tools import DuckDuckGoSearchResults
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
+from langchain.schema import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
@@ -12,7 +13,6 @@ from provenance import (DocumentSimilarityAttribution,
                         compute_llm_provenance_cloud,
                         compute_rerank_provenance)
 from RAGHelper import RAGHelper
-from web_search_agent import WebSearchAgent
 from result_combiner_agent import ResultCombinerAgent
 
 
@@ -35,7 +35,8 @@ class RAGHelperCloud(RAGHelper):
     def __init__(self, logger):
         """Initialize the RAGHelperCloud instance with required models and configurations."""
         super().__init__(logger)
-        self.web_search = WebSearchAgent()
+        self.web_search = DuckDuckGoSearchResults()
+
         self.result_combiner = ResultCombinerAgent(self.llm)
         self.rewrite_chain = None
         self.rewrite_ask_chain = None
@@ -125,12 +126,18 @@ class RAGHelperCloud(RAGHelper):
             
             self.logger.info("Handling user interaction.")
 
-            # Get web results
-            web_results = []
-         
-            self.logger.info("Fetching web results...")
-            web_results = self.web_search.search(user_query)
-            self.logger.info(f"Found {len(web_results)} web results")
+            # Perform web search
+            web_results = self.web_search.invoke(user_query)
+            web_docs = [
+                Document(
+                    page_content=result['snippet'],
+                    metadata={
+                        "source": result['link'],
+                        "title": result['title'],
+                        "is_web": True
+                    }
+                ) for result in web_results
+            ]
 
             # Get database results and setup chains
             prompt = ChatPromptTemplate.from_messages(thread)
@@ -142,29 +149,29 @@ class RAGHelperCloud(RAGHelper):
             self.logger.info(f"Found {len(db_results)} database results")
 
             # Use ResultCombinerAgent to merge results
-            combined_response = self.result_combiner.combine_results(
+            combined_result= self.result_combiner.combine_results(
                 query=user_query,
                 db_docs=db_results,
                 web_docs=web_results
             )
 
             # Format for RAG chain
-            retriever_chain = {
-                "docs": lambda _: combined_response["documents"],
-                "context": lambda _: RAGHelper.format_documents(combined_response["documents"]),
-                "question": RunnablePassthrough()
-            }
+            # retriever_chain = {
+            #     "docs": lambda _: combined_response["documents"],
+            #     "context": lambda _: RAGHelper.format_documents(combined_response["documents"]),
+            #     "question": RunnablePassthrough()
+            # }
 
-            rag_chain = (
-                retriever_chain
-                | RunnablePassthrough.assign(
-                    answer=lambda x: llm_chain.invoke({
-                        "docs": x["docs"],
-                        "context": x["context"],
-                        "question": x["question"]
-                    }))
-                | combine_results
-            )
+            # rag_chain = (
+            #     retriever_chain
+            #     | RunnablePassthrough.assign(
+            #         answer=lambda x: llm_chain.invoke({
+            #             "docs": x["docs"],
+            #             "context": x["context"],
+            #             "question": x["question"]
+            #         }))
+            #     | combine_results
+            # )
             # else:
             #     retriever_chain = {"question": RunnablePassthrough()}
             #     rag_chain = (
@@ -176,18 +183,16 @@ class RAGHelperCloud(RAGHelper):
             #         | combine_results
             #     )
 
-            # Invoke RAG pipeline
-            reply = rag_chain.invoke(user_query)
+            # Update history
+            answer = combined_result["answer"]
+            new_history = history + [{'role': 'user', 'content': user_query}, {'role': 'assistant', 'content': answer}]
 
-            # Track provenance if enabled
-            if fetch_new_documents and os.getenv("provenance_method") in ['rerank', 'attention', 'similarity', 'llm']:
-                self.track_provenance(reply, user_query)
-
-            return (thread, reply)
+            # Return the new history and the assistant's answer
+            return new_history, combined_result
 
         except Exception as e:
             self.logger.error(f"Error in handle_user_interaction: {str(e)}")
-            return (thread, {"answer": "An error occurred while processing your request.", "error": str(e)})
+            raise e
 
 
     def create_rewrite_chain(self):
