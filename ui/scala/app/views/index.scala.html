@@ -218,7 +218,7 @@
     });
 
     function handleChat() {
-        $('button[type="submit"]', this).prop('disabled', true);
+        $('button[type="submit"]').prop('disabled', true);
         $("#mainContainer").hide();
         var query = $("#query").val();
         $("#query").val('');
@@ -226,11 +226,11 @@
 
         addMessage(query, true);
         $("#loader").show();
-        $(dialogue).show();
+        $("#dialogue").show();
 
         $.ajax({
             type: "POST",
-            url: "@controllers.routes.HomeController.search()",
+            url: "@routes.HomeController.search()",
             data: JSON.stringify({
               query: query,
               history: chathistory,
@@ -284,6 +284,6 @@
           });
         });
     });
-</script>
+    </script>
 
 }
