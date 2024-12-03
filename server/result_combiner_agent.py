@@ -1,13 +1,14 @@
-# New file: result_combiner_agent.py
+# result_combiner_agent.py
+
 from typing import List, Dict
-from langchain_core.documents import Document
-from langchain.prompts import ChatPromptTemplate
+from langchain.schema import Document
+from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
 class ResultCombinerAgent:
     def __init__(self, llm):
         self.llm = llm
-        self.PromptTemplate(
+        self.combine_prompt = PromptTemplate(
             input_variables=["query", "db_info", "web_info"],
             template="""You are an assistant that combines information from database and web sources.
 
@@ -23,16 +24,13 @@ Provide a comprehensive answer using the information from both sources. Prioriti
 """
         )
         self.chain = LLMChain(llm=self.llm, prompt=self.combine_prompt)
-        
-    def combine_results(self, query: str, db_docs: List[Document], 
-                       web_docs: List[Document]) -> Dict:
-        db_text = "\n".join([d.page_content for d in db_docs])
-        web_text = "\n".join([d.page_content for d in web_docs])
+            
+    def combine_results(self, query: str, db_docs: List[Document], web_docs: List[Document]) -> Dict:
+        db_text = "\n".join([doc.page_content for doc in db_docs])
+        web_text = "\n".join([doc.page_content for doc in web_docs])
         
         self.llm.logger.info("Generating combined answer using LLM.")
-
-        
-        result = self.chain.run(
+        answer = self.chain.run(
             query=query,
             db_info=db_text,
             web_info=web_text
@@ -46,9 +44,9 @@ Provide a comprehensive answer using the information from both sources. Prioriti
         for doc in web_docs:
             doc.metadata['is_web'] = True
             all_docs.append(doc)
-            
+                
         return {
-            "answer": result,
+            "answer": answer,
             "documents": all_docs,
-            "query": query
+            "question": query
         }
