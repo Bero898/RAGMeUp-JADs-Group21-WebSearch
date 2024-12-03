@@ -56,7 +56,7 @@ class HomeController @Inject()(
         .recover {
           case e: Exception =>
             val errorMsg = s"Exception in search: ${e.getMessage}"
-            Logger.error(errorMsg)
+            print(errorMsg)
             InternalServerError(errorMsg)
         }
     }
