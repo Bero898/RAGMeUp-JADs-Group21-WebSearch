@@ -122,57 +122,59 @@ class RAGHelperCloud(RAGHelper):
             user_query = self.handle_rewrite(user_query)
             if os.getenv("use_re2") == "True":
                 user_query = f'{user_query}\n{os.getenv("re2_prompt")}{user_query}'
+            
+            self.logger.info("Handling user interaction.")
 
             # Get web results
             web_results = []
-            if os.getenv("use_web_search") == "True":
-                self.logger.info("Fetching web results...")
-                web_results = self.web_search.search(user_query)
-                self.logger.info(f"Found {len(web_results)} web results")
+         
+            self.logger.info("Fetching web results...")
+            web_results = self.web_search.search(user_query)
+            self.logger.info(f"Found {len(web_results)} web results")
 
             # Get database results and setup chains
             prompt = ChatPromptTemplate.from_messages(thread)
             llm_chain = prompt | self.llm | StrOutputParser()
 
-            if fetch_new_documents:
-                context_retriever = self.rerank_retriever if self.rerank else self.ensemble_retriever
-                db_results = context_retriever.invoke(user_query)
-                self.logger.info(f"Found {len(db_results)} database results")
+            # if fetch_new_documents:
+            context_retriever = self.rerank_retriever if self.rerank else self.ensemble_retriever
+            db_results = context_retriever.invoke(user_query)
+            self.logger.info(f"Found {len(db_results)} database results")
 
-                # Use ResultCombinerAgent to merge results
-                combined_response = self.result_combiner.combine_results(
-                    query=user_query,
-                    db_docs=db_results,
-                    web_docs=web_results
-                )
+            # Use ResultCombinerAgent to merge results
+            combined_response = self.result_combiner.combine_results(
+                query=user_query,
+                db_docs=db_results,
+                web_docs=web_results
+            )
 
-                # Format for RAG chain
-                retriever_chain = {
-                    "docs": lambda _: combined_response["documents"],
-                    "context": lambda _: RAGHelper.format_documents(combined_response["documents"]),
-                    "question": RunnablePassthrough()
-                }
+            # Format for RAG chain
+            retriever_chain = {
+                "docs": lambda _: combined_response["documents"],
+                "context": lambda _: RAGHelper.format_documents(combined_response["documents"]),
+                "question": RunnablePassthrough()
+            }
 
-                rag_chain = (
-                    retriever_chain
-                    | RunnablePassthrough.assign(
-                        answer=lambda x: llm_chain.invoke({
-                            "docs": x["docs"],
-                            "context": x["context"],
-                            "question": x["question"]
-                        }))
-                    | combine_results
-                )
-            else:
-                retriever_chain = {"question": RunnablePassthrough()}
-                rag_chain = (
-                    retriever_chain
-                    | RunnablePassthrough.assign(
-                        answer=lambda x: llm_chain.invoke({
-                            "question": x["question"]
-                        }))
-                    | combine_results
-                )
+            rag_chain = (
+                retriever_chain
+                | RunnablePassthrough.assign(
+                    answer=lambda x: llm_chain.invoke({
+                        "docs": x["docs"],
+                        "context": x["context"],
+                        "question": x["question"]
+                    }))
+                | combine_results
+            )
+            # else:
+            #     retriever_chain = {"question": RunnablePassthrough()}
+            #     rag_chain = (
+            #         retriever_chain
+            #         | RunnablePassthrough.assign(
+            #             answer=lambda x: llm_chain.invoke({
+            #                 "question": x["question"]
+            #             }))
+            #         | combine_results
+            #     )
 
             # Invoke RAG pipeline
             reply = rag_chain.invoke(user_query)
