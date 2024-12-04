@@ -12,7 +12,7 @@ from provenance import (DocumentSimilarityAttribution,
                         compute_llm_provenance_cloud,
                         compute_rerank_provenance)
 from RAGHelper import RAGHelper
-from langchain_community.tools import DuckDuckGoSearchResults, TavilySearchResults
+from langchain_community.tools import DuckDuckGoSearchResults
 
 
 def combine_results(inputs: dict) -> dict:
@@ -313,10 +313,8 @@ class RAGHelperCloud(RAGHelper):
             max_results = int(os.getenv("web_search_max_results", "3"))
             
             # Choose search provider based on configuration
-            if os.getenv("TAVILY_API_KEY"):
-                search = TavilySearchResults(max_results=max_results)
-            else:
-                search = DuckDuckGoSearchResults(max_results=max_results)
+        
+            search = DuckDuckGoSearchResults(max_results=max_results)
 
             # Perform search
             results = search.invoke(query)
