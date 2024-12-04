@@ -14,13 +14,12 @@ from transformers import (
     BitsAndBytesConfig,
     pipeline,
 )
-import getpass
 from langchain.chains.llm import LLMChain
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_huggingface.llms import HuggingFacePipeline
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
-from langchain_community.tools import DuckDuckGoSearchResults, TavilySearchResults
+from langchain_community.tools import DuckDuckGoSearchResults
 
 
 
@@ -313,28 +312,15 @@ class RAGHelperLocal(RAGHelper):
         try:
             if os.getenv("use_web_search") != "True":
                 return {"error": "Web search is not enabled"}, 400
-            
-            os.getenv('TAVILY_API_KEY')
 
             max_results = int(os.getenv("web_search_max_results", "3"))
             
             # Choose search provider based on configuration
         
-            tool = TavilySearchResults(
-                max_results=max_results,
-                search_depth="advanced",
-                include_answer=True,
-                include_raw_content=True,
-                include_images=True,
-                # include_domains=[...],
-                # exclude_domains=[...],
-                # name="...",            # overwrite default tool name
-                # description="...",     # overwrite default tool description
-                # args_schema=...,       # overwrite default args_schema: BaseModel
-            )
+            search = DuckDuckGoSearchResults(max_results=max_results, output_format="list")
 
             # Perform search
-            results = tool.invoke({"query":query})
+            results = search.invoke(query)
             
             # Format results
             formatted_results = []
