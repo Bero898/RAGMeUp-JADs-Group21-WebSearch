@@ -317,7 +317,7 @@ class RAGHelperLocal(RAGHelper):
             
             # Choose search provider based on configuration
         
-            search = DuckDuckGoSearchResults(max_results=max_results)
+            search = DuckDuckGoSearchResults(max_results=max_results, output_format="list")
 
             # Perform search
             results = search.invoke(query)
@@ -326,7 +326,6 @@ class RAGHelperLocal(RAGHelper):
             formatted_results = []
             for result in results:
                 formatted_results.append({
-                    "content": result.get("content", ""),
                     "title": result.get("title", ""),
                     "url": result.get("url", ""),
                     "snippet": result.get("snippet", "")
