@@ -296,6 +296,48 @@ class RAGHelperLocal(RAGHelper):
         if provenance_method == "llm":
             return compute_llm_provenance(self.tokenizer, self.model, user_query, context, answer)
         return []
+    
+    def perform_websearch(self, query: str) -> dict:
+        """
+        Perform web search using DuckDuckGo or Tavily based on configuration.
+        
+        Args:
+            query (str): Search query
+            
+        Returns:
+            dict: Search results with text and source URLs
+        """
+        try:
+            if os.getenv("use_web_search") != "True":
+                return {"error": "Web search is not enabled"}, 400
+
+            max_results = int(os.getenv("web_search_max_results", "3"))
+            
+            # Choose search provider based on configuration
+        
+            search = DuckDuckGoSearchResults(max_results=max_results)
+
+            # Perform search
+            results = search.invoke(query)
+            
+            # Format results
+            formatted_results = []
+            for result in results:
+                formatted_results.append({
+                    "content": result.get("content", ""),
+                    "title": result.get("title", ""),
+                    "url": result.get("url", ""),
+                    "snippet": result.get("snippet", "")
+                })
+
+            return {
+                "query": query,
+                "results": formatted_results
+            }
+
+        except Exception as e:
+            self.logger.error(f"Web search error: {str(e)}")
+            return {"error": str(e)}, 500
 
     def _compute_rerank_provenance(self, user_query, reply, answer):
         """Compute rerank-based provenance for the documents."""
@@ -306,3 +348,4 @@ class RAGHelperLocal(RAGHelper):
         reranked_docs = compute_rerank_provenance(self.compressor, user_query, reply['docs'], answer)
         return [d.metadata['relevance_score'] for d in reranked_docs if
                 d.page_content in [doc.page_content for doc in reply['docs']]]
+    
