@@ -326,7 +326,8 @@ class RAGHelperLocal(RAGHelper):
             formatted_results = []
             for result in results:
                 formatted_results.append({
-                    "result": result})
+                    "result": result,
+                    "type": type(result)})
 
             return {
                 "query": query,
