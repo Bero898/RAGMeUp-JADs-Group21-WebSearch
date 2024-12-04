@@ -19,6 +19,8 @@ from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_huggingface.llms import HuggingFacePipeline
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
+from langchain_community.tools import DuckDuckGoSearchResults
+
 
 
 class RAGHelperLocal(RAGHelper):
