@@ -53,6 +53,17 @@ class HomeController @Inject()(
       )
   }
 
+  def websearch() = Action.async { implicit request: Request[AnyContent] =>
+    val json = request.body.asJson.getOrElse(Json.obj()).as[JsObject]
+    val query = (json \ "query").as[String]
+
+    ws
+      .url(s"${config.get[String]("server_url")}/websearch")
+      .withRequestTimeout(5 minutes)
+      .post(Json.obj("query" -> query))
+      .map(response => Ok(response.json))
+  }
+
   def download(file: String) = Action.async { implicit request: Request[AnyContent] =>
     ws.url(s"${config.get[String]("server_url")}/get_document")
       .withRequestTimeout(5.minutes)

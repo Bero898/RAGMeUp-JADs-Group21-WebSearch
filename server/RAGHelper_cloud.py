@@ -12,6 +12,7 @@ from provenance import (DocumentSimilarityAttribution,
                         compute_llm_provenance_cloud,
                         compute_rerank_provenance)
 from RAGHelper import RAGHelper
+from langchain_community.tools import DuckDuckGoSearchResults, TavilySearchResults
 
 
 def combine_results(inputs: dict) -> dict:
@@ -294,6 +295,50 @@ class RAGHelperCloud(RAGHelper):
         for i, score in enumerate(provenance_scores):
             reply['docs'][i].metadata['provenance'] = score
             self.logger.debug(f"Provenance score added to doc {i}: {score}")
+
+    def perform_websearch(self, query: str) -> dict:
+        """
+        Perform web search using DuckDuckGo or Tavily based on configuration.
+        
+        Args:
+            query (str): Search query
+            
+        Returns:
+            dict: Search results with text and source URLs
+        """
+        try:
+            if os.getenv("use_web_search") != "True":
+                return {"error": "Web search is not enabled"}, 400
+
+            max_results = int(os.getenv("web_search_max_results", "3"))
+            
+            # Choose search provider based on configuration
+            if os.getenv("TAVILY_API_KEY"):
+                search = TavilySearchResults(max_results=max_results)
+            else:
+                search = DuckDuckGoSearchResults(max_results=max_results)
+
+            # Perform search
+            results = search.invoke(query)
+            
+            # Format results
+            formatted_results = []
+            for result in results:
+                formatted_results.append({
+                    "content": result.get("content", ""),
+                    "title": result.get("title", ""),
+                    "url": result.get("url", ""),
+                    "snippet": result.get("snippet", "")
+                })
+
+            return {
+                "query": query,
+                "results": formatted_results
+            }
+
+        except Exception as e:
+            self.logger.error(f"Web search error: {str(e)}")
+            return {"error": str(e)}, 500
 
     @staticmethod
     def extract_response_content(response: dict) -> str:

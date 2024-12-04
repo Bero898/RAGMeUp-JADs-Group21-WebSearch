@@ -217,5 +217,20 @@ def delete_document():
     return jsonify({"count": result.delete_count})
 
 
+@app.route("/websearch", methods=['POST'])
+def websearch():
+    """
+    Perform web search using DuckDuckGo or Tavily.
+    """
+    json_data = request.get_json()
+    query = json_data.get('query')
+
+    if not query:
+        return jsonify({"error": "Query is required"}), 400
+
+    results = raghelper.perform_websearch(query)
+    return jsonify(results)
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0")

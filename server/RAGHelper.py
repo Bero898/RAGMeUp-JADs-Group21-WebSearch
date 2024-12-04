@@ -488,6 +488,10 @@ class RAGHelper:
         # Implement your skill extraction logic here
         return []
 
+    # def perform_websearch(self, query: str) -> dict:
+    #     """Base method for web search functionality."""
+    #     raise NotImplementedError("Web search not implemented in base class")
+
     def load_data(self):
         """
         Loads data from various file types and chunks it into an ensemble retriever.
