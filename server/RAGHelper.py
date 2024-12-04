@@ -48,6 +48,10 @@ class RAGHelper:
         self.vector_store_uri = os.getenv('vector_store_uri')
         self.document_chunks_pickle = os.getenv('document_chunks_pickle')
         self.data_dir = os.getenv('data_directory')
+        if os.getenv("file_types") is None:
+            logger.error("osfiletypes is None")
+        else:
+            logger.info(f"osfiletypes: {os.getenv('file_types')}")
         self.file_types = os.getenv("file_types").split(",")
         self.splitter_type = os.getenv('splitter')
         self.vector_store = os.getenv("vector_store")
@@ -253,6 +257,11 @@ class RAGHelper:
 
     def _load_document(self, filename):
         """Load documents from the specified file based on its extension."""
+        if filename.lower() is None:
+            self.logger.error("filename lower is None")
+        else:
+            self.logger.info(f"filename lower: {filename.lower()}")
+    
         file_type = filename.lower().split('.')[-1]
         loaders = {
             'pdf': PyPDFLoader,
