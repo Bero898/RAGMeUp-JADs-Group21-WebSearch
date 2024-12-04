@@ -295,7 +295,7 @@ class RAGHelperCloud(RAGHelper):
         for i, score in enumerate(provenance_scores):
             reply['docs'][i].metadata['provenance'] = score
             self.logger.debug(f"Provenance score added to doc {i}: {score}")
-
+    
     def perform_websearch(self, query: str) -> dict:
         """
         Perform web search using DuckDuckGo or Tavily based on configuration.
@@ -314,7 +314,7 @@ class RAGHelperCloud(RAGHelper):
             
             # Choose search provider based on configuration
         
-            search = DuckDuckGoSearchResults(max_results=max_results)
+            search = DuckDuckGoSearchResults(max_results=max_results, output_format="list")
 
             # Perform search
             results = search.invoke(query)
@@ -323,10 +323,9 @@ class RAGHelperCloud(RAGHelper):
             formatted_results = []
             for result in results:
                 formatted_results.append({
-                    "content": result.get("content", ""),
-                    "title": result.get("title", ""),
-                    "url": result.get("url", ""),
-                    "snippet": result.get("snippet", "")
+                    "title": result['title'],
+                    "url": result['link'],
+                    "snippet": result['snippet']
                 })
 
             return {
