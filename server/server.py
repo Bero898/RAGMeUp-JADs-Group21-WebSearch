@@ -20,6 +20,11 @@ def load_bashrc():
         with open(bashrc_path) as f:
             for line in f:
                 if line.startswith("export "):
+                    if line is None:
+                        logger.error("line is None")
+                    else:
+                        logger.info(f"line: {line}")
+    
                     key, value = line.strip().replace("export ", "").split("=", 1)
                     value = value.strip(' "\'')
                     os.environ[key] = value
@@ -114,6 +119,10 @@ def get_documents():
         JSON response containing the list of files.
     """
     data_dir = os.getenv('data_directory')
+    if file_types is None:
+        logger.error("filetype server is None")
+    else:
+        logger.info(f"filetypeserver: {file_types}")
     file_types = os.getenv("file_types", "").split(",")
 
     # Filter files based on specified types
