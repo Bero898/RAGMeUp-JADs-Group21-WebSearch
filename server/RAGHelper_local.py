@@ -326,9 +326,9 @@ class RAGHelperLocal(RAGHelper):
             formatted_results = []
             for result in results:
                 formatted_results.append({
-                    "title": result.get("title", ""),
-                    "url": result.get("url", ""),
-                    "snippet": result.get("snippet", "")
+                    "title": result['title'],
+                    "url": result['link'],
+                    "snippet": result['snippet']
                 })
 
             return {
