@@ -328,11 +328,19 @@ class RAGHelperLocal(RAGHelper):
                 formatted_results.append({
                     "result": str(result),
                     "type": str(type(result))})
+                
+            for result in formatted_results:
+                self.logger.info(f"Web search result for query '{query}': {result['result']}")
+                self.logger.info(f"Web search result type for query '{query}': {result['type']}")
+
+            
+
 
             return {
                 "query": query,
                 "results": formatted_results
             }
+        
 
         except Exception as e:
             self.logger.error(f"Web search error: {str(e)}")
