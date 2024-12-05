@@ -321,22 +321,24 @@ class RAGHelperLocal(RAGHelper):
 
             # Perform search
             results = search.invoke(query)
+            formatted_results = []
+            result_pattern = re.compile(r'\[snippet: (.*?), title: (.*?), link: (.*?)\]')
+            matches = result_pattern.findall(results)
             
-            # Format results
-            # formatted_results = []
-            # for result in results:
-            #     formatted_results.append({
-            #         "result": str(result),
-            #         "type": str(type(result))})
-            self.logger.info(f"Web search results for query '{query}': {str(results)}")
-            self.logger.info(f"Web search type for query '{query}': {str(type(results))}")
-
+            for match in matches:
+                formatted_results.append({
+                    "snippet": match[0],
+                    "title": match[1],
+                    "link": match[2]
+                })
             
+            self.logger.info(f"Web search results for query '{query}': {str(formatted_results)}")
+            self.logger.info(f"Web search type for query '{query}': {str(type(formatted_results))}")
 
 
             return {
                 "query": query,
-                "results": formatted_results
+                "results": results
             }
         
 
