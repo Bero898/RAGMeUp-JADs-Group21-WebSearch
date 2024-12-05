@@ -323,13 +323,13 @@ class RAGHelperLocal(RAGHelper):
             results = search.invoke(query)
             
             # Format results
-            formatted_results = []
-            for result in results:
-                formatted_results.append({
-                    "result": str(result),
-                    "type": str(type(result))})
-            self.logger.info(f"Web search results for query '{query}': {formatted_results['results']}")
-            self.logger.info(f"Web search type for query '{query}': {formatted_results['type']}")
+            # formatted_results = []
+            # for result in results:
+            #     formatted_results.append({
+            #         "result": str(result),
+            #         "type": str(type(result))})
+            self.logger.info(f"Web search results for query '{query}': {results}")
+            self.logger.info(f"Web search type for query '{query}': {type(results)}")
 
             
 
