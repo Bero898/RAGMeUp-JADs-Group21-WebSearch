@@ -328,10 +328,8 @@ class RAGHelperLocal(RAGHelper):
                 formatted_results.append({
                     "result": str(result),
                     "type": str(type(result))})
-                
-            for result in formatted_results:
-                self.logger.info(f"Web search result for query '{query}': {result['result']}")
-                self.logger.info(f"Web search result type for query '{query}': {result['type']}")
+            self.logger.info(f"Web search results for query '{query}': {formatted_results['results']}")
+            self.logger.info(f"Web search type for query '{query}': {formatted_results['type']}")
 
             
 
